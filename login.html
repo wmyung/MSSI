@@ -270,25 +270,46 @@
     };
     const clearMsg = () => { $("authMsg").className = "status-msg"; };
 
-    // ─── 역할 탭 전환 ───
-    document.querySelectorAll(".auth-tab").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".auth-tab").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        selectedRole = btn.dataset.role;
-        ["patient", "doctor", "admin"].forEach(r => {
-          $("form-" + r).style.display = selectedRole === r ? "block" : "none";
-        });
-        // 역할별 회원가입 링크
-        const signupMap = { patient: "signup-patient.html", doctor: "signup-doctor.html", admin: "signup-patient.html" };
-        const href = signupMap[selectedRole] || "signup-patient.html";
-        $("signupLink").href = href;
-        $("signupLink2").href = href;
-        $("signupLink").style.display = selectedRole === "admin" ? "none" : "inline";
-        $("signupLink2").style.display = selectedRole === "admin" ? "none" : "inline";
-        clearMsg();
+    // ─── 역할 탭 전환 + URL 파라미터 지원 ───
+    // URL에 ?role=patient / ?role=doctor 가 있으면 해당 역할 고정
+    const urlRole = new URLSearchParams(location.search).get("role");
+    if (urlRole && ["patient", "doctor", "admin"].includes(urlRole)) {
+      selectedRole = urlRole;
+      document.querySelectorAll(".auth-tab").forEach(b => b.classList.remove("active"));
+      document.querySelector(`.auth-tab[data-role="${urlRole}"]`)?.classList.add("active");
+      // 다른 역할 탭 숨김
+      document.querySelectorAll(".auth-tab").forEach(b => {
+        if (b.dataset.role !== urlRole) b.style.display = "none";
       });
-    });
+      ["patient", "doctor", "admin"].forEach(r => {
+        $("form-" + r).style.display = selectedRole === r ? "block" : "none";
+      });
+      const signupMap = { patient: "signup-patient.html", doctor: "signup-doctor.html", admin: "signup-patient.html" };
+      const href = signupMap[selectedRole] || "signup-patient.html";
+      $("signupLink").href = href;
+      $("signupLink2").href = href;
+      $("signupLink").style.display = selectedRole === "admin" ? "none" : "inline";
+      $("signupLink2").style.display = selectedRole === "admin" ? "none" : "inline";
+    } else {
+      // 일반 모드 — 모든 탭 표시
+      document.querySelectorAll(".auth-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".auth-tab").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          selectedRole = btn.dataset.role;
+          ["patient", "doctor", "admin"].forEach(r => {
+            $("form-" + r).style.display = selectedRole === r ? "block" : "none";
+          });
+          const signupMap = { patient: "signup-patient.html", doctor: "signup-doctor.html", admin: "signup-patient.html" };
+          const href = signupMap[selectedRole] || "signup-patient.html";
+          $("signupLink").href = href;
+          $("signupLink2").href = href;
+          $("signupLink").style.display = selectedRole === "admin" ? "none" : "inline";
+          $("signupLink2").style.display = selectedRole === "admin" ? "none" : "inline";
+          clearMsg();
+        });
+      });
+    }
 
     // ─── 로그인 처리 ───
     $("btnLogin").addEventListener("click", async () => {
