@@ -16,4 +16,4 @@ export const DOCTOR_EMAIL_DOMAIN  = "doctor.local";
 export const ADMIN_EMAIL = "snumood@gmail.com";
 
 // Google Sheets Webhook URL (Apps Script 배포 후 URL로 변경)
-export const GOOGLE_SHEETS_WEBHOOK_URL = ""; // ★ 여기에 Apps Script URL 입력
+export const GOOGLE_SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxmi4VQ1X11Qvg_xAz6XDUuUBQkmLsCzxBHjy6KqN_nqDHMNnafiGyc0KR_EWoHP6tZ/exec";
