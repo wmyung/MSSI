@@ -222,7 +222,7 @@ export function calculateScores(answers) {
   // ASRS screening (6 items threshold-based)
   let asrsScreen = 0;
   for (let i = 1; i <= 3; i++) { if (get(`adhd${i}`) >= 3) asrsScreen++; }
-  for (let i = 4; i <= 6; i++) { if (get(`adhd${i}`) >= 2) asrsScreen++; }
+  for (let i = 4; i <= 6; i++) { if (get(`adhd${i}`) >= 4) asrsScreen++; }  // 공식 기준: Q4-Q6 >= 4 (자주 이상)
   const asrsResult = asrsScreen >= 4 ? `성인ADHD의심됨, 6개중${asrsScreen}항목` : `성인ADHD의심되지않음, 6개중${asrsScreen}항목`;
   const asrsTotal  = sum('adhd', 1, 18);
 

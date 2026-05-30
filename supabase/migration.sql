@@ -30,8 +30,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   approved_at   TIMESTAMPTZ,
 
   -- 환자 전용
-  dob           TEXT,         -- 생년월일 (YYYY-MM-DD)
-  gender        TEXT CHECK (gender IN ('male','female')),
   patient_number TEXT
 );
 
@@ -286,7 +284,7 @@ BEGIN
   INSERT INTO public.profiles (
     id, email, username, role,
     doctor_name, hospital_name, hospital_code, contact_email,
-    dob, gender, patient_number,
+    patient_number,
     full_name
   ) VALUES (
     NEW.id,
@@ -297,8 +295,6 @@ BEGIN
     meta->>'hospital_name',
     meta->>'hospital_code',
     meta->>'contact_email',
-    meta->>'dob',
-    meta->>'gender',
     meta->>'patient_number',
     COALESCE(meta->>'doctor_name', meta->>'username')
   );

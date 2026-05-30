@@ -58,7 +58,26 @@ function clearMsg(elId) {
   const el_ = el(elId); if (el_) el_.className = "status-msg";
 }
 
-// ── 텍스트 정제 ──
+// ─── 변별진단 분기 매핑 (상위=아니오 → 하위 숨김) ───
+const DIAG_BRANCH = {
+  diag_panic:  { parent: "d1a", children: ["d1b", "d2"] },
+  diag_agora:  { parent: "e1",  children: ["e3"] },
+  diag_social: { parent: "f1",  children: ["f3_4", "f6"] },
+  diag_ocd:    { parent: "g1a", children: ["g2"], sub: { parent: "g3a", children: ["g5"] } },
+  diag_gad:    { parent: "n1a", children: ["n1b", "n2", "n3a", "n3b", "n3c", "n3d", "n3e", "n3f"] }
+};
+
+function isDiagChildHidden(sectionId, qId) {
+  const rule = DIAG_BRANCH[sectionId];
+  if (!rule) return false;
+  if (rule.children.includes(qId)) return state.answers[rule.parent] === 0;
+  if (rule.sub && rule.sub.children.includes(qId)) return state.answers[rule.sub.parent] === 0;
+  return false;
+}
+
+function isAUDITSkipActive() {
+  return state.answers["au1"] === 0;
+}
 const cleanText  = t => t ? t.replace(/\[cite:[^\]]*\]/g, "").trim() : "";
 const cleanTitle = t => t ? t.replace(/\s*\([^)]+\)/g, "").trim() : "";
 
@@ -219,8 +238,6 @@ el("btnLoginAction")?.addEventListener("click", async () => {
         signUpMeta = {
           role: "patient",
           username: rawId,
-          dob: el("p_dob").value,
-          gender: el("p_gender").value,
           hospital_code: el("p_hcode").value.trim(),
           patient_number: el("p_pnum").value.trim()
         };
@@ -234,7 +251,6 @@ el("btnLoginAction")?.addEventListener("click", async () => {
           contact_email: email,
           doctor_name: el("d_name").value.trim(),
           hospital_name: hospitalName,
-          dob: el("d_dob").value,
           hospital_code: hcode
         };
       }
@@ -279,7 +295,7 @@ async function handleAuthUser(user) {
   let prof = null;
   for (let i = 0; i < 5; i++) {
     const { data, error } = await sb.from("profiles")
-      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, contact_email, dob, gender, approved_at")
+      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, contact_email, approved_at")
       .eq("id", user.id).maybeSingle();
     if (data) { prof = data; break; }
     if (error) console.warn("프로필 조회 오류:", error.message);
@@ -395,7 +411,7 @@ async function loadAdminDoctors() {
         <div class="sub">${d.hospital_name || "-"}</div>
       </div>
       <div class="list-actions">
-        <button class="btn secondary sm reset-btn" data-id="${d.id}" data-dob="${d.dob||''}">비밀번호 초기화</button>
+        <button class="btn secondary sm reset-btn" data-id="${d.id}">비밀번호 초기화</button>
       </div>
     </div>`).join("");
 }
@@ -412,8 +428,8 @@ document.addEventListener("click", async (e) => {
     await loadAdminDoctors();
   }
   if (e.target.matches(".reset-btn")) {
-    const { id, dob } = e.target.dataset;
-    const newPw = dob ? dob.replace(/-/g, "") : "000000";
+    const { id } = e.target.dataset;
+    const newPw = "000000";
     if (!confirm(`비밀번호를 '${newPw}'(으)로 초기화하시겠습니까?`)) return;
     const { error } = await sb.rpc("admin_reset_password", { target_user_id: id, new_password: newPw });
     if (error) alert("오류: " + error.message);
@@ -581,10 +597,8 @@ window.viewResponseById = async (responseId) => {
 async function initPatient() {
   show("view-patient");
   const p = state.profile;
-  const genderStr = p?.gender === "male" ? "남성" : (p?.gender === "female" ? "여성" : "-");
-
   el("patientHeroName").textContent = `${p?.username || "환자"}님`;
-  el("patientHeroSub").textContent  = `${genderStr}`;
+  el("patientHeroSub").textContent  = ``;
 
   await refreshPatientStatus();
 }
@@ -736,13 +750,18 @@ function getUnanswered() {
   if (!section) return [];
 
   const isPmsSection = section.title.includes("PMS") || section.title.includes("생리주기");
-  if (isPmsSection && state.profile?.gender === "male") return [];
   if (isPmsSection && state.answers["pms_skip"] === 1)  return [];
   if (isPmsSection && state.answers["pms_skip"] === undefined) return ["pms_skip"];
 
   const missing = [];
   for (const q of section.questions) {
     if (q.type === "info") continue;
+
+    // 변별진단: 상위문항=아니오면 하위문항 skip
+    if (isDiagChildHidden(section.id, q.id)) continue;
+
+    // AUDIT: 비음주자는 au2~au10 skip
+    if (section.id === "audit_k" && q.id !== "au1" && isAUDITSkipActive()) continue;
 
     if (section.type === "matrix_complex" && q.id !== "mssi21") {
       if (state.answers[`${q.id}_yn`] === undefined) { missing.push(q.id); continue; }
@@ -794,15 +813,6 @@ function renderSurvey() {
 
   let section = SURVEY_SECTIONS[state.currentSectionIdx];
 
-  // 남성이면 PMS 건너뛰기
-  while (section && (section.title.includes("PMS") || section.title.includes("생리주기")) && state.profile?.gender === "male") {
-    if (state.currentSectionIdx < SURVEY_SECTIONS.length - 1) {
-      state.currentSectionIdx++;
-      section = SURVEY_SECTIONS[state.currentSectionIdx];
-    } else {
-      submitSurvey(); return;
-    }
-  }
   if (!section) { submitSurvey(); return; }
 
   // 프로그레스
@@ -851,6 +861,20 @@ function renderSurvey() {
       infoDiv.textContent = cleanText(q.text);
       container.appendChild(infoDiv);
       return;
+    }
+
+    // AUDIT 비음주자: au1=0 → 나머지 자동 0점 처리하고 숨김
+    if (section.id === "audit_k" && q.id !== "au1" && isAUDITSkipActive()) {
+      state.answers[q.id] = state.answers[q.id] || 0;
+      const input = document.querySelector(`input[name="${q.id}"]`);
+      if (input) { input.checked = true; input.dispatchEvent(new Event('change')); }
+      return; // 렌더 안 함
+    }
+
+    // 변별진단: 상위문항=아니오면 하위문항 숨김
+    if (isDiagChildHidden(section.id, q.id)) {
+      state.answers[q.id] = 0; // 자동 0점
+      return; // 렌더 안 함
     }
 
     const qRow = document.createElement("div");
@@ -981,7 +1005,11 @@ function renderMatrixMonths(q, qRow) {
       <div class="months-grid">
         ${months.map((m, cidx) => {
           const k = `${q.id}_r${ridx}_m${cidx}`;
-          return `<label class="month-chip"><input type="checkbox" ${state.answers[k]?"checked":""} onchange="window.saveChk('${k}', this.checked)"> ${m}</label>`;
+          // SPAQ 월별/차이없음 상호배제: 월(0-11) 체크시 차이없음(12) 해제, 차이없음 체크시 월 해제
+          const onChangeLogic = cidx === 12
+            ? `window.saveChk('${k}', this.checked); if(this.checked){for(let ci=0;ci<12;ci++){window.saveChk('${q.id}_r${ridx}_m'+ci,false);document.querySelectorAll('input[name^=\"${q.id}_r${ridx}_m\"]')[ci].checked=false;}}`
+            : `window.saveChk('${k}', this.checked); if(this.checked){var nc=document.querySelector('input[name=\"${q.id}_r${ridx}_m12\"]');if(nc){nc.checked=false;window.saveChk('${q.id}_r${ridx}_m12',false);}}`;
+          return `<label class="month-chip"><input type="checkbox" name="${k}" ${state.answers[k]?"checked":""} onchange="${onChangeLogic}"> ${m}</label>`;
         }).join("")}
       </div>`;
     qRow.appendChild(div);
@@ -1135,16 +1163,12 @@ function renderResultView(report, completedAt, patientNumber) {
   const instructions = (report && report.instructions) ? report.instructions : getGlobalInstructions();
   el("resultInstructions").textContent = instructions;
 
-  // 환자 정보 표시 (성별, 출생연도, 병원코드, 번호)
+  // 환자 정보 표시 (병원코드, 번호)
   const infoEl = el("resultPatientInfo");
   if (infoEl && state.profile) {
     const p = state.profile;
-    const genderStr = p.gender === "male" ? "남성" : (p.gender === "female" ? "여성" : "-");
-    const dobYear = p.dob ? p.dob.slice(0, 4) : "-";
     infoEl.innerHTML = `
-      <span class="meta-label">성별:</span><span class="meta-value">${genderStr}</span>
-      &nbsp;&nbsp;<span class="meta-label">출생연도:</span><span class="meta-value">${dobYear}</span>
-      &nbsp;&nbsp;<span class="meta-label">병원코드:</span><span class="meta-value">${p.hospital_code || "-"}</span>
+      <span class="meta-label">병원코드:</span><span class="meta-value">${p.hospital_code || "-"}</span>
       &nbsp;&nbsp;<span class="meta-label">번호:</span><span class="meta-value">${p.patient_number || "-"}</span>`;
   }
 
