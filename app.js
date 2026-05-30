@@ -238,6 +238,7 @@ el("btnLoginAction")?.addEventListener("click", async () => {
         signUpMeta = {
           role: "patient",
           username: rawId,
+          dob: el("p_dob").value,
           hospital_code: el("p_hcode").value.trim(),
           patient_number: el("p_pnum").value.trim()
         };
@@ -295,7 +296,7 @@ async function handleAuthUser(user) {
   let prof = null;
   for (let i = 0; i < 5; i++) {
     const { data, error } = await sb.from("profiles")
-      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, contact_email, approved_at")
+      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, contact_email, dob, approved_at")
       .eq("id", user.id).maybeSingle();
     if (data) { prof = data; break; }
     if (error) console.warn("프로필 조회 오류:", error.message);
@@ -1163,12 +1164,14 @@ function renderResultView(report, completedAt, patientNumber) {
   const instructions = (report && report.instructions) ? report.instructions : getGlobalInstructions();
   el("resultInstructions").textContent = instructions;
 
-  // 환자 정보 표시 (병원코드, 번호)
+  // 환자 정보 표시 (출생연도, 병원코드, 번호)
   const infoEl = el("resultPatientInfo");
   if (infoEl && state.profile) {
     const p = state.profile;
+    const dobYear = p.dob ? p.dob.slice(0, 4) : "-";
     infoEl.innerHTML = `
-      <span class="meta-label">병원코드:</span><span class="meta-value">${p.hospital_code || "-"}</span>
+      <span class="meta-label">출생연도:</span><span class="meta-value">${dobYear}</span>
+      &nbsp;&nbsp;<span class="meta-label">병원코드:</span><span class="meta-value">${p.hospital_code || "-"}</span>
       &nbsp;&nbsp;<span class="meta-label">번호:</span><span class="meta-value">${p.patient_number || "-"}</span>`;
   }
 
