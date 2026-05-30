@@ -244,13 +244,13 @@
           <input type="checkbox" id="saveIdCheck">
           아이디 저장
         </label>
-        <a href="signup.html" class="link-signup">회원가입 →</a>
+        <a id="signupLink" href="signup-patient.html" class="link-signup">회원가입 →</a>
       </div>
 
       <button id="btnLogin" class="btn-login">로그인</button>
 
       <div class="login-footer">
-        <a href="signup.html">처음 사용하시나요? 회원가입</a>
+        <a id="signupLink2" href="signup-patient.html">처음 사용하시나요? 회원가입</a>
       </div>
     </div>
   </div>
@@ -279,6 +279,13 @@
         ["patient", "doctor", "admin"].forEach(r => {
           $("form-" + r).style.display = selectedRole === r ? "block" : "none";
         });
+        // 역할별 회원가입 링크
+        const signupMap = { patient: "signup-patient.html", doctor: "signup-doctor.html", admin: "signup-patient.html" };
+        const href = signupMap[selectedRole] || "signup-patient.html";
+        $("signupLink").href = href;
+        $("signupLink2").href = href;
+        $("signupLink").style.display = selectedRole === "admin" ? "none" : "inline";
+        $("signupLink2").style.display = selectedRole === "admin" ? "none" : "inline";
         clearMsg();
       });
     });

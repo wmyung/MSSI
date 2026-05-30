@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>의사 회원가입 — 기분장애 임상평가 설문</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+      padding: 24px 0;
+    }
+    .signup-wrapper { width: 100%; max-width: 420px; margin: 0 16px; }
+    .signup-header { text-align: center; margin-bottom: 28px; }
+    .signup-header h1 { font-size: 20px; font-weight: 800; color: #1a237e; margin: 0 0 6px; letter-spacing: -0.5px; }
+    .signup-header p { font-size: 13px; color: #666; margin: 0; }
+    .signup-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 28px 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    }
+    .signup-card h2 { font-size: 17px; font-weight: 700; text-align: center; margin: 0 0 20px; color: #333; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
+    .form-group label .required { color: #e53e3e; font-size: 12px; }
+    .form-group input {
+      width: 100%; padding: 11px 13px;
+      border: 1.5px solid #e0e0e0; border-radius: 10px;
+      font-size: 14px; outline: none; transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+    .form-group input:focus { border-color: #4263eb; box-shadow: 0 0 0 3px rgba(66,99,235,0.1); }
+    .form-group input[readonly] { background: #f8f9fa; color: #888; }
+    .form-divider { height: 1px; background: #eee; margin: 20px 0; }
+    .btn-signup {
+      width: 100%; padding: 14px;
+      background: #4263eb; color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background 0.2s, transform 0.1s; margin-top: 8px;
+    }
+    .btn-signup:hover { background: #364fc7; }
+    .btn-signup:active { transform: scale(0.98); }
+    .btn-signup:disabled { background: #a5b4fc; cursor: not-allowed; transform: none; }
+    .status-msg { font-size: 13px; padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; display: none; }
+    .status-msg.show { display: block; }
+    .status-msg.error { background: #fee2e2; color: #b91c1c; }
+    .status-msg.ok    { background: #d1fae5; color: #065f46; }
+    .status-msg.info  { background: #dbeafe; color: #1e40af; }
+    .auth-link { text-align: center; margin-top: 20px; }
+    .auth-link a { font-size: 13px; color: #4263eb; text-decoration: none; font-weight: 600; }
+    .auth-link a:hover { text-decoration: underline; }
+    .info-badge { font-size: 12px; color: #555; background: #f0f4ff; padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="signup-wrapper">
+    <div class="signup-header">
+      <h1>🩺 의사 회원가입</h1>
+      <p>기분장애 임상평가 설문 시스템</p>
+    </div>
+    <div class="signup-card">
+      <h2>새 계정 만들기</h2>
+      <div id="signupMsg" class="status-msg"></div>
+
+      <div class="info-badge">
+        가입 후 관리자 승인이 필요합니다. 승인 완료 시 로그인이 가능합니다.
+      </div>
+
+      <div class="form-group">
+        <label>아이디 <span class="required">*</span></label>
+        <input type="text" id="s_id" placeholder="로그인에 사용할 아이디" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>비밀번호 <span class="required">*</span></label>
+        <input type="password" id="s_pw" placeholder="4자리 이상" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>비밀번호 확인 <span class="required">*</span></label>
+        <input type="password" id="s_pw2" placeholder="비밀번호 다시 입력" autocomplete="new-password">
+      </div>
+
+      <div class="form-divider"></div>
+
+      <div class="form-group">
+        <label>이름 <span class="required">*</span></label>
+        <input type="text" id="s_dname" placeholder="실명 입력">
+      </div>
+      <div class="form-group">
+        <label>병원명 <span class="required">*</span></label>
+        <input type="text" id="s_hname" placeholder="예: 분당서울대학교병원">
+      </div>
+      <div class="form-group">
+        <label>병원코드 <span class="optional">(병원명 입력 시 자동 생성)</span></label>
+        <input type="text" id="s_doctor_hcode" placeholder="자동 생성됩니다" readonly style="background:#f8f9fa;color:#888;">
+      </div>
+
+      <button id="btnSignup" class="btn-signup">가입하기</button>
+
+      <div class="auth-link">
+        <a href="login.html">이미 계정이 있으신가요? 로그인</a>
+      </div>
+    </div>
+
+    <!-- 승인 대기 화면 -->
+    <div class="signup-card" id="cardPending" style="display:none;">
+      <div style="text-align:center;padding:20px 0;">
+        <div style="font-size:40px;margin-bottom:12px;">⏳</div>
+        <h3 style="font-size:18px;margin:0 0 8px;">승인 대기 중</h3>
+        <p style="font-size:14px;color:#666;margin:0 0 6px;"><strong id="pendingName"></strong> 선생님의 가입이 접수되었습니다.</p>
+        <p style="font-size:14px;color:#666;">관리자 승인 후 로그인하실 수 있습니다.</p>
+        <div style="margin-top:24px;">
+          <a href="login.html" style="display:inline-block;padding:12px 32px;background:#4263eb;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;">로그인으로 이동</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    import { SUPABASE_URL, SUPABASE_ANON_KEY, DOCTOR_EMAIL_DOMAIN } from "./config.js";
+
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const $ = id => document.getElementById(id);
+    const setMsg = (msg, type) => { const el = $("signupMsg"); el.className = `status-msg show ${type}`; el.textContent = msg; };
+    const clearMsg = () => { $("signupMsg").className = "status-msg"; };
+
+    const CONSONANT_MAP = {
+      'ㄱ':'G','ㄴ':'N','ㄷ':'D','ㄹ':'R','ㅁ':'M','ㅂ':'B','ㅅ':'S',
+      'ㅇ':null,'ㅈ':'J','ㅊ':'C','ㅋ':'K','ㅌ':'T','ㅍ':'P','ㅎ':'H'
+    };
+    function extractConsonants(str) {
+      let result = '';
+      for (const ch of str) {
+        const code = ch.charCodeAt(0);
+        if (code >= 0xAC00 && code <= 0xD7A3) {
+          const idx = Math.floor((code - 0xAC00) / 28 / 21);
+          const cons = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'][idx];
+          const mapped = CONSONANT_MAP[cons];
+          if (mapped) result += mapped;
+        }
+      }
+      return result;
+    }
+    async function generateHospitalCode(hospitalName) {
+      const consonants = extractConsonants(hospitalName || "").slice(0, 4);
+      const base = consonants || "HOSP";
+      for (let a = 0; a < 10; a++) {
+        const digits = String(Math.floor(Math.random() * 90) + 10);
+        const code = base + digits;
+        const { data } = await sb.from("profiles").select("id").eq("hospital_code", code).maybeSingle();
+        if (!data) return code;
+      }
+      return base + String(Date.now()).slice(-4);
+    }
+
+    $("s_hname")?.addEventListener("input", async function() {
+      if (this.value.trim().length >= 2) {
+        const code = await generateHospitalCode(this.value.trim());
+        $("s_doctor_hcode").value = code;
+      }
+    });
+
+    $("btnSignup").addEventListener("click", async () => {
+      clearMsg();
+      const id = $("s_id").value.trim();
+      const pw = $("s_pw").value;
+      const pw2 = $("s_pw2").value;
+      const dname = $("s_dname").value.trim();
+      const hname = $("s_hname").value.trim();
+
+      try {
+        if (!id) throw "아이디를 입력하세요.";
+        if (id.length < 2) throw "아이디는 2자 이상이어야 합니다.";
+        if (!pw) throw "비밀번호를 입력하세요.";
+        if (pw.length < 4) throw "비밀번호는 4자리 이상이어야 합니다.";
+        if (pw !== pw2) throw "비밀번호가 일치하지 않습니다.";
+        if (!dname) throw "이름을 입력하세요.";
+        if (!hname) throw "병원명을 입력하세요.";
+
+        let hcode = $("s_doctor_hcode").value;
+        if (!hcode) hcode = await generateHospitalCode(hname);
+
+        const email = `${id}@${DOCTOR_EMAIL_DOMAIN}`;
+        setMsg("가입 요청 중...", "info");
+        $("btnSignup").disabled = true;
+
+        const { data, error } = await sb.auth.signUp({
+          email, password: pw,
+          options: { data: { role: "doctor_pending", username: id, doctor_name: dname, hospital_name: hname, hospital_code: hcode } }
+        });
+        if (error) throw error.message;
+        if (!data.user) throw "가입 요청 실패.";
+
+        $("cardPending").style.display = "block";
+        document.querySelector(".signup-card:not(#cardPending)").style.display = "none";
+        const pendName = $("pendingName");
+        if (pendName) pendName.textContent = dname;
+      } catch (e) {
+        setMsg(typeof e === "string" ? e : (e.message || "오류 발생"), "error");
+        $("btnSignup").disabled = false;
+      }
+    });
+
+    document.querySelectorAll("input").forEach(inp => {
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") $("btnSignup").click(); });
+    });
+  </script>
+</body>
+</html>
