@@ -8,7 +8,7 @@
  */
 
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, PATIENT_EMAIL_DOMAIN, DOCTOR_EMAIL_DOMAIN, ADMIN_EMAIL } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, PATIENT_EMAIL_DOMAIN, DOCTOR_EMAIL_DOMAIN, ADMIN_EMAIL, GOOGLE_SHEETS_WEBHOOK_URL } from "./config.js";
 import { SURVEY_SECTIONS } from "./questions.js";
 import { calculateScores, generateReport, getGlobalInstructions } from "./scoring.js";
 
@@ -1135,6 +1135,31 @@ async function submitSurvey() {
     }).eq("id", state.responseId);
 
     alert("설문이 성공적으로 제출되었습니다.");
+    
+    // Google Sheets에 데이터 전송 (webhook URL이 설정된 경우)
+    if (GOOGLE_SHEETS_WEBHOOK_URL && state.profile) {
+      try {
+        const gsPayload = {
+          timestamp: new Date().toISOString(),
+          patientId: state.profile.id || state.user?.id || '',
+          dob: state.profile.dob || '',
+          hospitalCode: state.profile.hospital_code || '',
+          patientNumber: state.profile.patient_number || '',
+          doctorNickname: state.profile.doctor_name || '',
+          hospitalNickname: state.profile.hospital_name || '',
+          answers: state.answers
+        };
+        fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors', // Apps Script는 CORS를 완전 지원하지 않음
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(gsPayload)
+        }).catch(e => console.warn('Google Sheets 전송 실패(무시됨):', e));
+      } catch (e) {
+        console.warn('Google Sheets 전송 오류(무시됨):', e);
+      }
+    }
+    
     renderResultView(report, new Date().toISOString(), state.profile?.patient_number);
     show("view-result");
     el("btnBack").onclick = () => { show("view-patient"); refreshPatientStatus(); };

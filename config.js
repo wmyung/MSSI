@@ -14,3 +14,6 @@ export const DOCTOR_EMAIL_DOMAIN  = "doctor.local";
 
 // 관리자 로그인 이메일 (유일한 관리자)
 export const ADMIN_EMAIL = "snumood@gmail.com";
+
+// Google Sheets Webhook URL (Apps Script 배포 후 URL로 변경)
+export const GOOGLE_SHEETS_WEBHOOK_URL = ""; // ★ 여기에 Apps Script URL 입력
