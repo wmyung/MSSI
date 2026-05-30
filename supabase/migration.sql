@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   approved_at   TIMESTAMPTZ,
 
   -- 환자 전용
-  dob           TEXT,         -- 생년월일 (YYYY-MM-DD)
+  dob           TEXT,         -- 생년월 (YYYY-MM)
   patient_number TEXT
 );
 
