@@ -88,15 +88,15 @@
       <div class="form-divider"></div>
 
       <div class="form-group">
-        <label>이름 <span class="required">*</span></label>
-        <input type="text" id="s_dname" placeholder="실명 입력">
+        <label>닉네임 <span class="required">*</span></label>
+        <input type="text" id="s_dname" placeholder="닉네임 입력">
       </div>
       <div class="form-group">
-        <label>병원명 <span class="required">*</span></label>
-        <input type="text" id="s_hname" placeholder="예: 분당서울대학교병원">
+        <label>병원닉네임 <span class="required">*</span></label>
+        <input type="text" id="s_hname" placeholder="예: 분당별명">
       </div>
       <div class="form-group">
-        <label>병원코드 <span class="optional">(병원명 입력 시 자동 생성)</span></label>
+        <label>병원코드 <span class="optional">(병원닉네임 입력 시 자동 생성)</span></label>
         <input type="text" id="s_doctor_hcode" placeholder="자동 생성됩니다" readonly style="background:#f8f9fa;color:#888;">
       </div>
 
@@ -180,8 +180,8 @@
         if (!pw) throw "비밀번호를 입력하세요.";
         if (pw.length < 4) throw "비밀번호는 4자리 이상이어야 합니다.";
         if (pw !== pw2) throw "비밀번호가 일치하지 않습니다.";
-        if (!dname) throw "이름을 입력하세요.";
-        if (!hname) throw "병원명을 입력하세요.";
+        if (!dname) throw "닉네임을 입력하세요.";
+        if (!hname) throw "병원닉네임을 입력하세요.";
 
         let hcode = $("s_doctor_hcode").value;
         if (!hcode) hcode = await generateHospitalCode(hname);

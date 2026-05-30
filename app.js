@@ -137,7 +137,7 @@ el("btnToggleSignup")?.addEventListener("click", () => {
   renderAuthMode();
 });
 
-// 병원명에서 병원코드 자동 생성
+// 병원닉네임에서 병원코드 자동 생성
 const CONSONANT_MAP = {
   'ㄱ':'G','ㄴ':'N','ㄷ':'D','ㄹ':'R','ㅁ':'M','ㅂ':'B','ㅅ':'S',
   'ㅇ':null,'ㅈ':'J','ㅊ':'C','ㅋ':'K','ㅌ':'T','ㅍ':'P','ㅎ':'H'
@@ -244,7 +244,7 @@ el("btnLoginAction")?.addEventListener("click", async () => {
         };
       } else {
         const hospitalName = el("d_hname").value.trim();
-        if (!hospitalName) throw "병원명을 입력해주세요.";
+        if (!hospitalName) throw "병원닉네임을 입력해주세요.";
         const hcode = await generateHospitalCode(hospitalName);
         signUpMeta = {
           role: "doctor_pending",
