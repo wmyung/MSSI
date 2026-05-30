@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   doctor_name   TEXT,
   hospital_name TEXT,
   hospital_code TEXT UNIQUE,
-  contact_email TEXT,
   approved_at   TIMESTAMPTZ,
 
   -- 환자 전용
@@ -84,15 +83,15 @@ CREATE INDEX IF NOT EXISTS idx_survey_created_at ON public.survey_responses(crea
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- 누구나 프로필 생성 가능 (회원가입 시)
-CREATE POLICY "profiles_insert_anyone" ON public.profiles
+CREATE POLICY IF NOT EXISTS "profiles_insert_anyone" ON public.profiles
   FOR INSERT WITH CHECK (true);
 
 -- 자신의 프로필은 읽기 가능
-CREATE POLICY "profiles_select_own" ON public.profiles
+CREATE POLICY IF NOT EXISTS "profiles_select_own" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
 -- 의사/관리자는 같은 병원코드 환자 프로필 조회 가능
-CREATE POLICY "profiles_select_doctor_hospital" ON public.profiles
+CREATE POLICY IF NOT EXISTS "profiles_select_doctor_hospital" ON public.profiles
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.profiles viewer
@@ -106,26 +105,26 @@ CREATE POLICY "profiles_select_doctor_hospital" ON public.profiles
   );
 
 -- 자신의 프로필만 수정
-CREATE POLICY "profiles_update_own" ON public.profiles
+CREATE POLICY IF NOT EXISTS "profiles_update_own" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
 -- survey_responses
 ALTER TABLE public.survey_responses ENABLE ROW LEVEL SECURITY;
 
 -- 환자는 자신의 설문만 INSERT
-CREATE POLICY "survey_insert_own" ON public.survey_responses
+CREATE POLICY IF NOT EXISTS "survey_insert_own" ON public.survey_responses
   FOR INSERT WITH CHECK (
     auth.uid() = patient_id
   );
 
 -- 환자는 자신의 설문만 SELECT
-CREATE POLICY "survey_select_own" ON public.survey_responses
+CREATE POLICY IF NOT EXISTS "survey_select_own" ON public.survey_responses
   FOR SELECT USING (
     auth.uid() = patient_id
   );
 
 -- 의사는 같은 병원코드의 완료된 설문 SELECT 가능
-CREATE POLICY "survey_select_doctor" ON public.survey_responses
+CREATE POLICY IF NOT EXISTS "survey_select_doctor" ON public.survey_responses
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM public.profiles viewer
@@ -139,7 +138,7 @@ CREATE POLICY "survey_select_doctor" ON public.survey_responses
   );
 
 -- 환자는 자신의 설문만 UPDATE
-CREATE POLICY "survey_update_own" ON public.survey_responses
+CREATE POLICY IF NOT EXISTS "survey_update_own" ON public.survey_responses
   FOR UPDATE USING (auth.uid() = patient_id);
 
 -- ══════════════════════════════════════════════════════════════
@@ -156,7 +155,6 @@ AS $$
 DECLARE
   v_admin_role TEXT;
 BEGIN
-  -- 관리자 권한 확인
   SELECT role INTO v_admin_role FROM public.profiles WHERE id = auth.uid();
   IF v_admin_role IS DISTINCT FROM 'admin' THEN
     RAISE EXCEPTION '권한이 없습니다.';
@@ -185,7 +183,6 @@ BEGIN
     RAISE EXCEPTION '권한이 없습니다.';
   END IF;
 
-  -- auth.users 테이블의 비밀번호 변경
   UPDATE auth.users
   SET encrypted_password = crypt(new_password, gen_salt('bf'))
   WHERE id = target_user_id;
@@ -193,7 +190,6 @@ END;
 $$;
 
 -- 5c. 의사가 환자 번호로 결과 검색
--- SECURITY DEFINER: 의사 권한 확인 후 같은 병원코드의 환자 결과만 반환
 CREATE OR REPLACE FUNCTION public.doctor_get_patient_results(p_patient_number TEXT)
 RETURNS SETOF survey_responses
 LANGUAGE plpgsql
@@ -220,7 +216,6 @@ BEGIN
       AND sr.hospital_code = v_viewer_hcode
     ORDER BY sr.completed_at DESC;
   ELSE
-    -- admin은 모든 결과 조회 가능
     RETURN QUERY
     SELECT sr.*
     FROM survey_responses sr
@@ -284,7 +279,7 @@ BEGIN
 
   INSERT INTO public.profiles (
     id, email, username, role,
-    doctor_name, hospital_name, hospital_code, contact_email,
+    doctor_name, hospital_name, hospital_code,
     dob, patient_number,
     full_name
   ) VALUES (
@@ -295,7 +290,6 @@ BEGIN
     meta->>'doctor_name',
     meta->>'hospital_name',
     meta->>'hospital_code',
-    meta->>'contact_email',
     meta->>'dob',
     meta->>'patient_number',
     COALESCE(meta->>'doctor_name', meta->>'username')
@@ -305,7 +299,6 @@ BEGIN
 END;
 $$;
 
--- 기존 트리거 제거 후 재생성 (중복 실행 방지)
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 CREATE TRIGGER on_auth_user_created
@@ -338,13 +331,25 @@ CREATE TRIGGER set_survey_updated_at
   EXECUTE FUNCTION public.update_updated_at();
 
 -- ══════════════════════════════════════════════════════════════
--- 8. 서비스 설정 (필요시)
+-- 8. 기존 DB migration: contact_email 컬럼 제거 (2026-05-30)
 -- ══════════════════════════════════════════════════════════════
-
--- Supabase Auth 설정에서 다음을 활성화하세요:
--- 1. Settings → Auth → Email Auth → Confirm email: OFF (이메일 확인 없이 로그인)
--- 2. Settings → Auth → Security → Allow multiple accounts with same email: ON (선택사항)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'contact_email'
+  ) THEN
+    ALTER TABLE public.profiles DROP COLUMN contact_email;
+  END IF;
+END $$;
 
 -- ══════════════════════════════════════════════════════════════
--- ✅ 완료. 이제 MSSI 설문조사 앱이 Supabase와 연결되었습니다.
+-- 서비스 설정
+-- ══════════════════════════════════════════════════════════════
+-- Supabase Auth 설정:
+-- 1. Settings → Auth → Email Auth → Confirm email: OFF
+-- 2. Settings → Auth → Security → Allow multiple accounts with same email: ON (선택)
+
+-- ══════════════════════════════════════════════════════════════
+-- ✅ 완료
 -- ══════════════════════════════════════════════════════════════

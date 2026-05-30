@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>의사 대시보드 — 기분장애 임상평가 설문</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ─── 추가 의사 대시보드 스타일 ─── */
+    .doctor-hero {
+      background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 20px;
+    }
+    .doctor-hero h2 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .doctor-hero .sub {
+      opacity: 0.8;
+      font-size: 14px;
+    }
+    .doctor-hero .badge-white {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      padding: 3px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+    .doctor-info-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #fff;
+      margin-top: 10px;
+    }
+    .doctor-info-bar .sep {
+      opacity: 0.4;
+    }
+    .doctor-info-bar .info-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .doctor-info-bar .info-label {
+      opacity: 0.7;
+      font-weight: 500;
+    }
+    .doctor-info-bar .info-value {
+      font-weight: 700;
+    }
+    .loading-dots::after {
+      content: '';
+      animation: dots 1.2s steps(4) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+      100% { content: ''; }
+    }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-sub);
+    }
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+    .empty-state p {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .empty-state .sub {
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .patient-list-loading {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-sub);
+      font-size: 14px;
+    }
+    .spinner-small {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(0,0,0,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .print-btn-wrap .btn.sm {
+      height: 36px;
+      font-size: 12px;
+      padding: 0 14px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ 헤더 ══════════ -->
+<header id="mainHeader">
+  <h1>기분장애 임상평가 설문</h1>
+  <div class="header-right">
+    <span id="userBadge" class="user-badge" style="display:none;">의사</span>
+    <button id="btnLogout" class="btn secondary sm">로그아웃</button>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- ══════════ 로딩 스피너 (인증 확인 중) ══════════ -->
+  <div id="view-loading" class="view active" style="text-align:center;padding:80px 20px;">
+    <div style="width:40px;height:40px;border:3px solid #e0e0e0;border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 20px;"></div>
+    <p style="color:var(--text-sub);font-size:15px;">인증 확인 중...</p>
+  </div>
+
+  <!-- ══════════ 의사 대시보드 뷰 ══════════ -->
+  <div id="view-doctor" class="view">
+    <div class="doctor-hero">
+      <h2 id="doctorName">의사 선생님</h2>
+      <div class="doctor-info-bar" id="doctorInfo">
+        <span class="info-item">
+          <span class="info-label">병원</span>
+          <span class="info-value" id="doctorHospital">-</span>
+        </span>
+        <span class="sep">|</span>
+        <span class="info-item">
+          <span class="info-label">병원코드</span>
+          <span class="info-value" id="doctorHospitalCode">-</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="card">
+      <!-- 탭 -->
+      <div class="doctor-tabs">
+        <button class="doctor-tab active" data-tab="search" id="doctorTabSearchBtn">환자 검색</button>
+        <button class="doctor-tab" data-tab="list">환자 목록</button>
+      </div>
+
+      <!-- 검색 탭 -->
+      <div id="doctorTabSearch">
+        <div class="form-group">
+          <label>환자 번호</label>
+          <div style="display:flex; gap:10px;">
+            <input type="text" id="searchPNum" placeholder="예: 12345" style="margin:0;">
+            <button id="btnSearchPatient" class="btn primary" style="width:100px; margin:0;">검색</button>
+          </div>
+        </div>
+        <div id="doctorSearchMsg" class="status-msg"></div>
+        <div id="doctorResultArea"></div>
+      </div>
+
+      <!-- 목록 탭 -->
+      <div id="doctorTabList" style="display:none;">
+        <h3 style="font-size:15px; font-weight:700; margin-bottom:16px; color:var(--text-sub);">내 병원 완료된 설문 목록</h3>
+        <div id="doctorPatientList">
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <p>병원 데이터를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.container -->
+
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+  import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL } from "./config.js";
+  import { SURVEY_SECTIONS } from "./questions.js";
+  import { calculateScores, generateReport, getGlobalInstructions } from "./scoring.js";
+
+  // ─── Supabase 클라이언트 ───
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ─── DOM 유틸 ───
+  const $  = sel => document.querySelector(sel);
+  const $$ = sel => document.querySelectorAll(sel);
+  const el = id  => document.getElementById(id);
+
+  // ─── 날짜 포맷 ───
+  function fmtDate(str) {
+    if (!str) return "-";
+    const d = new Date(str);
+    return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  }
+
+  // ─── 상태 메시지 ───
+  function setMsg(elId, msg, type = "info") {
+    const el_ = el(elId);
+    if (!el_) return;
+    el_.className = `status-msg show ${type}`;
+    el_.textContent = msg;
+    if (type === "ok") setTimeout(() => { el_.className = "status-msg"; }, 3500);
+  }
+  function clearMsg(elId) {
+    const el_ = el(elId); if (el_) el_.className = "status-msg";
+  }
+
+  // ─── 뷰 전환 ───
+  function show(id) {
+    $$(".view").forEach(v => v.classList.remove("active"));
+    const target = el(id);
+    if (target) { target.classList.add("active"); window.scrollTo(0, 0); }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 리포트 HTML 렌더러 (app.js의 renderReportHTML 이식)
+  // ══════════════════════════════════════════════════════════════
+  function renderReportHTML(report, container) {
+    if (!container || !report) return;
+
+    function fmtScore(val) {
+      if (val === undefined || val === null) return "-";
+      if (typeof val === 'number') return Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(2)).toString();
+      return String(val);
+    }
+
+    function fmtRank(r) {
+      return typeof r === "number" ? r + "등" : (r || "-");
+    }
+
+    const sections = report.sections || [];
+
+    container.innerHTML = sections.map(section => {
+      const groups = section.groups || [];
+
+      let groupsHTML = groups.map(group => {
+        let html = "";
+
+        // Sub-section label
+        if (group.label && group.type !== "comorbidity") {
+          html += `<div class="group-label">${group.label}</div>`;
+        }
+
+        // Description block
+        if (group.description) {
+          html += `<div class="section-desc-block">${group.description}</div>`;
+        }
+
+        // Comorbidity group
+        if (group.type === "comorbidity") {
+          const items = group.items || [];
+          html += `<div class="group-label">${group.label || ""}</div>`;
+          html += `<table class="result-table comorbidity-table"><tbody>`;
+          items.forEach(item => {
+            const cls = item.value === 'O' ? 'comorbid-positive' : 'comorbid-negative';
+            html += `<tr><td class="comorbid-name">${item.name}</td><td class="comorbid-val ${cls}">${item.value}</td></tr>`;
+          });
+          html += `</tbody></table>`;
+          return html;
+        }
+
+        // Data table
+        const rows = group.rows || [];
+        if (rows.length === 0) return html;
+
+        const hasSpecial = rows.some(r => r.specialCols);
+
+        if (hasSpecial) {
+          html += `<div class="result-table-wrap"><table class="result-table">
+            <thead><tr>
+              <th class="col-name">검사명</th>
+              <th class="col-score">결과</th>
+              <th class="col-score">점수</th>
+              <th class="col-rank">환자비교백분위</th>
+              <th class="col-rank">정상군비교백분위</th>
+            </tr></thead>
+            <tbody>`;
+          rows.forEach(r => {
+            const name = r.name || "";
+            const subCls = r.sub ? " sub-item" : "";
+            if (r.textOnly) {
+              html += `<tr><td class="name-cell${subCls}">${name}</td><td class="score-cell" colspan="4">${fmtScore(r.score)}</td></tr>`;
+            } else if (r.specialCols) {
+              const pRank = fmtRank(r.pat_rank);
+              const nRank = fmtRank(r.nor_rank);
+              html += `<tr>
+                <td class="name-cell${subCls}">${name}</td>
+                <td class="score-cell">${r.extra || ""}</td>
+                <td class="score-cell">${fmtScore(r.score)}</td>
+                <td class="rank-cell" style="color:${r.pat_color || 'inherit'}">${pRank}</td>
+                <td class="rank-cell" style="color:${r.nor_color || 'inherit'}">${nRank}</td>
+              </tr>`;
+              if (r.description) {
+                html += `<tr class="desc-row"><td colspan="5" class="desc-cell-block">${r.description}</td></tr>`;
+              }
+            } else {
+              const pRank = fmtRank(r.pat_rank);
+              const nRank = fmtRank(r.nor_rank);
+              html += `<tr>
+                <td class="name-cell${subCls}">${name}</td>
+                <td class="score-cell" colspan="2">${fmtScore(r.score)}</td>
+                <td class="rank-cell" style="color:${r.pat_color || 'inherit'}">${pRank}</td>
+                <td class="rank-cell" style="color:${r.nor_color || 'inherit'}">${nRank}</td>
+              </tr>`;
+              if (!r.sub && r.description) {
+                html += `<tr class="desc-row"><td colspan="5" class="desc-cell-block">${r.description}</td></tr>`;
+              }
+            }
+          });
+          html += `</tbody></table></div>`;
+        } else {
+          html += `<div class="result-table-wrap"><table class="result-table">
+            <thead><tr>
+              <th class="col-name">검사명</th>
+              <th class="col-score">응답결과</th>
+              <th class="col-rank">환자비교백분위</th>
+              <th class="col-rank">정상군비교백분위</th>
+            </tr></thead>
+            <tbody>`;
+          rows.forEach(r => {
+            const name = r.name || "";
+            const subCls = r.sub ? " sub-item" : "";
+            if (r.textOnly) {
+              html += `<tr><td class="name-cell${subCls}">${name}</td><td class="score-cell" colspan="3">${fmtScore(r.score)}</td></tr>`;
+            } else {
+              const pRank = fmtRank(r.pat_rank);
+              const nRank = fmtRank(r.nor_rank);
+              html += `<tr>
+                <td class="name-cell${subCls}">${name}</td>
+                <td class="score-cell">${fmtScore(r.score)}</td>
+                <td class="rank-cell" style="color:${r.pat_color || 'inherit'}">${pRank}</td>
+                <td class="rank-cell" style="color:${r.nor_color || 'inherit'}">${nRank}</td>
+              </tr>`;
+              if (!r.sub && r.description) {
+                html += `<tr class="desc-row"><td colspan="4" class="desc-cell-block">${r.description}</td></tr>`;
+              }
+            }
+          });
+          html += `</tbody></table></div>`;
+        }
+
+        return html;
+      }).join("");
+
+      return `
+        <div class="result-category">
+          <div class="result-section-title">${section.title}</div>
+          ${groupsHTML}
+        </div>`;
+    }).join("");
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 환자 검색 결과 렌더링 (app.js의 renderDoctorResult 이식)
+  // ══════════════════════════════════════════════════════════════
+  function renderDoctorResult(row, container) {
+    let report = row.report;
+    const needsRecalc = !report || !report.sections?.[0]?.groups;
+    if (needsRecalc && row.answers) {
+      try {
+        const scores = calculateScores(row.answers);
+        report = generateReport(scores, row.answers);
+      } catch (e) { console.error("재계산 실패:", e); }
+    }
+    if (!report) {
+      container.innerHTML = `<p class="text-sub" style="padding:20px 0;">결과 데이터가 없습니다.</p>`;
+      return;
+    }
+
+    const instructions = (report && report.instructions) ? report.instructions : getGlobalInstructions();
+    const dateStr = fmtDate(row.completed_at);
+    const patNum = row.patient_number || "-";
+
+    container.innerHTML = `
+      <div class="patient-result-card">
+        <div class="divider" style="margin-top:0;"></div>
+        <div class="result-header-block">
+          <h2 class="report-main-title">기분장애 임상평가 결과지</h2>
+          <p class="report-date-line">${dateStr}&nbsp;&nbsp;번호: ${patNum}</p>
+        </div>
+        <details style="margin-bottom:24px;">
+          <summary style="cursor:pointer;font-size:14px;font-weight:700;color:var(--accent);padding:12px 16px;background:var(--accent-light);border-radius:10px;">
+            📋 결과 해석 안내 (클릭하여 펼치기)
+          </summary>
+          <div class="result-instructions" style="margin-top:8px;">${instructions}</div>
+        </details>
+        <div id="drReportContent"></div>
+        <div class="print-btn-wrap">
+          <button class="btn secondary sm" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
+        </div>
+      </div>`;
+
+    renderReportHTML(report, el("drReportContent"));
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 환자 검색
+  // ══════════════════════════════════════════════════════════════
+  async function searchPatient() {
+    const pNum = el("searchPNum").value.trim();
+    if (!pNum) return alert("번호를 입력하세요.");
+    setMsg("doctorSearchMsg", "검색 중...", "info");
+    el("doctorResultArea").innerHTML = "";
+
+    const { data, error } = await sb.rpc("doctor_get_patient_results", { p_patient_number: pNum });
+    if (error) { setMsg("doctorSearchMsg", "오류: " + error.message, "error"); return; }
+
+    if (!data || !data.length) {
+      setMsg("doctorSearchMsg", `'${pNum}' 에 해당하는 완료된 결과가 없습니다.`, "warn");
+      return;
+    }
+
+    clearMsg("doctorSearchMsg");
+    const row = data[0];
+    renderDoctorResult(row, el("doctorResultArea"));
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 환자 목록 불러오기
+  // ══════════════════════════════════════════════════════════════
+  async function loadDoctorPatientList() {
+    const list = el("doctorPatientList");
+    if (!list) return;
+    list.innerHTML = `<div class="patient-list-loading"><span class="spinner-small"></span>로딩 중...</div>`;
+
+    const { data, error } = await sb.rpc("doctor_list_patients");
+
+    if (error || !data?.length) {
+      list.innerHTML = `<div class="empty-state">
+        <div class="icon">📭</div>
+        <p>완료된 설문이 없습니다.</p>
+        <div class="sub">아직 해당 병원에서 완료된 설문 결과가 없습니다.</div>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = data.map(r => `
+      <div class="history-item" data-response-id="${r.id}" style="cursor:pointer;">
+        <div class="history-dot"></div>
+        <div class="history-info">
+          <div class="history-date">번호: ${r.patient_number || "미입력"}</div>
+          <div class="history-sub">완료: ${fmtDate(r.completed_at)}</div>
+        </div>
+        <button class="btn secondary sm" data-view-id="${r.id}">결과보기</button>
+      </div>`).join("");
+
+    // 결과보기 클릭 이벤트
+    list.querySelectorAll('[data-view-id]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const responseId = btn.dataset.viewId;
+        await viewResponseById(responseId);
+      });
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 결과보기 (ID 기반)
+  // ══════════════════════════════════════════════════════════════
+  async function viewResponseById(responseId) {
+    const { data, error } = await sb.from("survey_responses").select("*").eq("id", responseId).single();
+    if (error || !data) return alert("결과를 찾을 수 없습니다.");
+
+    const needsRecalc = !data?.report || !data.report.sections?.[0]?.groups;
+    if (needsRecalc && data?.answers) {
+      try {
+        const scores = calculateScores(data.answers);
+        data.report = generateReport(scores, data.answers);
+      } catch (e) { console.error("재계산 실패:", e); }
+    }
+    if (!data?.report) return alert("결과를 찾을 수 없습니다.");
+
+    // 결과 화면으로 이동
+    const area = el("doctorResultArea");
+    area.innerHTML = "";
+    renderDoctorResult(data, area);
+
+    // 검색 탭으로 전환
+    $$(".doctor-tab").forEach(b => b.classList.remove("active"));
+    el("doctorTabSearchBtn")?.classList.add("active");
+    el("doctorTabSearch").style.display = "block";
+    el("doctorTabList").style.display   = "none";
+
+    el("searchPNum").value = data.patient_number || "";
+    area.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 의사 대시보드 초기화
+  // ══════════════════════════════════════════════════════════════
+  function initDoctor(profile) {
+    show("view-doctor");
+
+    el("doctorName").textContent = `${profile.doctor_name || profile.username || "의사"} 선생님`;
+    el("doctorHospital").textContent = profile.hospital_name || "-";
+    el("doctorHospitalCode").textContent = profile.hospital_code || "없음";
+    el("userBadge").style.display = "block";
+
+    loadDoctorPatientList();
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // 탭 전환
+  // ══════════════════════════════════════════════════════════════
+  $$(".doctor-tab").forEach(btn => btn.addEventListener("click", () => {
+    $$(".doctor-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const tab = btn.dataset.tab;
+    el("doctorTabSearch").style.display = tab === "search" ? "block" : "none";
+    el("doctorTabList").style.display   = tab === "list"   ? "block" : "none";
+  }));
+
+  // ══════════════════════════════════════════════════════════════
+  // 검색 버튼 / Enter 이벤트
+  // ══════════════════════════════════════════════════════════════
+  el("btnSearchPatient")?.addEventListener("click", searchPatient);
+  el("searchPNum")?.addEventListener("keydown", e => { if (e.key === "Enter") searchPatient(); });
+
+  // ══════════════════════════════════════════════════════════════
+  // 로그아웃
+  // ══════════════════════════════════════════════════════════════
+  el("btnLogout")?.addEventListener("click", async () => {
+    await sb.auth.signOut();
+    window.location.href = "login.html";
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // 인증 상태 감지 → 페이지 초기화
+  // ══════════════════════════════════════════════════════════════
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+      const user = session?.user;
+      if (!user) {
+        // 세션 없음 → 로그인 페이지로
+        window.location.href = "login.html";
+        return;
+      }
+
+      // 관리자 패스트트랙
+      if (user.email?.toLowerCase() === ADMIN_EMAIL) {
+        window.location.href = "admin.html";
+        return;
+      }
+
+      // 프로필 로드 (최대 5회 재시도)
+      (async () => {
+        let prof = null;
+        for (let i = 0; i < 5; i++) {
+          const { data, error } = await sb.from("profiles")
+            .select("id, role, email, username, doctor_name, hospital_name, hospital_code")
+            .eq("id", user.id).maybeSingle();
+          if (data) { prof = data; break; }
+          if (error) console.warn("프로필 조회 오류:", error.message);
+          if (i < 4) await new Promise(r => setTimeout(r, 500));
+        }
+
+        if (!prof) {
+          window.location.href = "login.html";
+          return;
+        }
+
+        // 의사 권한 확인
+        if (prof.role !== "doctor") {
+          if (prof.role === "patient") {
+            window.location.href = "respondent.html";
+          } else if (prof.role === "doctor_pending") {
+            window.location.href = "signup.html?pending=1";
+          } else {
+            window.location.href = "login.html";
+          }
+          return;
+        }
+
+        initDoctor(prof);
+      })();
+    } else if (event === "SIGNED_OUT") {
+      window.location.href = "login.html";
+    }
+  });
+</script>
+
+</body>
+</html>
