@@ -203,7 +203,7 @@ async function checkAuth() {
   let prof = null;
   for (let i = 0; i < 5; i++) {
     const { data } = await sb.from("profiles")
-      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, contact_email, dob, approved_at")
+      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, dob, approved_at")
       .eq("id", state.user.id).maybeSingle();
     if (data) { prof = data; break; }
     if (i < 4) await new Promise(r => setTimeout(r, 500));

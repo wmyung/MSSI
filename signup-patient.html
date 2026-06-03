@@ -151,9 +151,13 @@
         setMsg("가입 요청 중...", "info");
         $("btnSignup").disabled = true;
 
+        const patientNumber = $("s_pnum").value.trim();
+        const userData = { role: "patient", username: id, dob, hospital_code: hcode };
+        if (patientNumber) userData.patient_number = patientNumber;
+
         const { data, error } = await sb.auth.signUp({
           email, password: pw,
-          options: { data: { role: "patient", username: id, dob, hospital_code: hcode, patient_number: $("s_pnum").value.trim() } }
+          options: { data: userData }
         });
         if (error) throw error.message;
         if (!data.user) throw "가입 요청 실패.";

@@ -38,6 +38,24 @@ CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 CREATE INDEX IF NOT EXISTS idx_profiles_hospital_code ON public.profiles(hospital_code);
 CREATE INDEX IF NOT EXISTS idx_profiles_patient_number ON public.profiles(patient_number);
 
+--patient_number는 선택값이므로 UNIQUE 제약을 두지 않는다. 기존 운영 DB에 잘못 생긴 UNIQUE도 제거한다.
+DO $$
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'public.profiles'::regclass
+      AND contype = 'u'
+      AND pg_get_constraintdef(oid) ILIKE '%patient_number%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS %I', r.conname);
+  END LOOP;
+END $$;
+ALTER TABLE public.profiles ALTER COLUMN patient_number DROP NOT NULL;
+UPDATE public.profiles SET patient_number = NULL WHERE patient_number = '';
+
 --══════════════════════════════════════════════════════════════
 --3. survey_responses 테이블
 --══════════════════════════════════════════════════════════════
@@ -274,8 +292,26 @@ AS $$
 DECLARE
   meta JSONB := NEW.raw_user_meta_data;
   v_role TEXT;
+  v_hospital_code TEXT;
+  v_patient_number TEXT;
 BEGIN
-  v_role := COALESCE(meta->>'role', 'patient');
+  v_role := COALESCE(NULLIF(meta->>'role', ''), 'patient');
+  v_hospital_code := NULLIF(meta->>'hospital_code', '');
+  v_patient_number := NULLIF(meta->>'patient_number', '');
+
+  IF v_role = 'patient' THEN
+    IF v_hospital_code IS NULL THEN
+      RAISE EXCEPTION '병원코드가 필요합니다.';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE hospital_code = v_hospital_code
+        AND role = 'doctor'
+    ) THEN
+      RAISE EXCEPTION '존재하지 않거나 미승인된 병원코드입니다.';
+    END IF;
+  END IF;
 
   INSERT INTO public.profiles (
     id, email, username, role,
@@ -285,14 +321,14 @@ BEGIN
   ) VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(meta->>'username', SPLIT_PART(NEW.email, '@', 1)),
+    COALESCE(NULLIF(meta->>'username', ''), SPLIT_PART(NEW.email, '@', 1)),
     v_role,
-    meta->>'doctor_name',
-    meta->>'hospital_name',
-    meta->>'hospital_code',
-    meta->>'dob',
-    meta->>'patient_number',
-    COALESCE(meta->>'doctor_name', meta->>'username')
+    NULLIF(meta->>'doctor_name', ''),
+    NULLIF(meta->>'hospital_name', ''),
+    v_hospital_code,
+    NULLIF(meta->>'dob', ''),
+    v_patient_number,
+    COALESCE(NULLIF(meta->>'doctor_name', ''), NULLIF(meta->>'username', ''), SPLIT_PART(NEW.email, '@', 1))
   );
 
   RETURN NEW;

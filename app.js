@@ -207,13 +207,14 @@ el("btnLoginAction")?.addEventListener("click", async () => {
 
       let signUpMeta;
       if (selectedRole === "patient") {
+        const patientNumber = el("p_pnum").value.trim();
         signUpMeta = {
           role: "patient",
           username: rawId,
           dob: el("p_dob").value,
-          hospital_code: el("p_hcode").value.trim(),
-          patient_number: el("p_pnum").value.trim()
+          hospital_code: el("p_hcode").value.trim()
         };
+        if (patientNumber) signUpMeta.patient_number = patientNumber;
       } else {
         const hospitalName = el("d_hname").value.trim();
         if (!hospitalName) throw "병원닉네임을 입력해주세요.";
@@ -221,7 +222,6 @@ el("btnLoginAction")?.addEventListener("click", async () => {
         signUpMeta = {
           role: "doctor_pending",
           username: rawId,
-          contact_email: email,
           doctor_name: el("d_name").value.trim(),
           hospital_name: hospitalName,
           hospital_code: hcode
@@ -265,7 +265,7 @@ async function handleAuthUser(user) {
   let prof = null;
   for (let i = 0; i < 5; i++) {
     const { data, error } = await sb.from("profiles")
-      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, contact_email, dob, approved_at")
+      .select("id, role, email, username, full_name, doctor_name, hospital_name, hospital_code, patient_number, dob, approved_at")
       .eq("id", user.id).maybeSingle();
     if (data) { prof = data; break; }
     if (error) console.warn("프로필 조회 오류:", error.message);
@@ -346,7 +346,7 @@ async function loadAdminPending() {
     <div class="list-row">
       <div class="list-info">
         <div class="name">${d.doctor_name || "-"}</div>
-        <div class="sub">${d.hospital_name || "-"} &nbsp;|&nbsp; ${d.contact_email || "-"}</div>
+        <div class="sub">${d.hospital_name || "-"} &nbsp;|&nbsp; ${d.email || "-"}</div>
       </div>
       <div class="list-actions">
         <button class="btn primary sm approve-btn" data-id="${d.id}" data-name="${d.doctor_name}">승인</button>
