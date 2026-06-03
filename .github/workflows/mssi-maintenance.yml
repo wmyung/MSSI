@@ -1,0 +1,86 @@
+name: MSSI Maintenance
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "probe | hardening | cleanup_response"
+        required: true
+        default: "probe"
+      response_id:
+        description: "survey_responses id to delete for cleanup_response"
+        required: false
+        default: ""
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe available secrets
+        if: ${{ inputs.action == 'probe' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os
+          for name in ['SUPABASE_URL','SUPABASE_SERVICE_KEY','SUPABASE_DB_URL','DATABASE_URL','POSTGRES_URL','SUPABASE_DB_PASSWORD']:
+              print(f'{name}_present={bool(os.environ.get(name))}')
+          PY
+
+      - name: Install PostgreSQL client
+        if: ${{ inputs.action == 'hardening' }}
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+
+      - name: Run hardening SQL
+        if: ${{ inputs.action == 'hardening' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > /tmp/db_url
+          import os, urllib.parse, re, sys
+          for name in ['SUPABASE_DB_URL','DATABASE_URL','POSTGRES_URL']:
+              v = os.environ.get(name, '').strip()
+              if v:
+                  print(v)
+                  sys.exit(0)
+          pwd = os.environ.get('SUPABASE_DB_PASSWORD', '').strip()
+          supa = os.environ.get('SUPABASE_URL', '').strip()
+          m = re.search(r'https://([^.]+)\.supabase\.co', supa)
+          if pwd and m:
+              enc = urllib.parse.quote(pwd, safe='')
+              print('postgresql://postgres:' + enc + '@db.' + m.group(1) + '.supabase.co:5432/postgres')
+              sys.exit(0)
+          raise SystemExit('No database connection secret available')
+          PY
+          psql "$(cat /tmp/db_url)" -v ON_ERROR_STOP=1 -f supabase/hardening.sql
+          echo "hardening_sql=success"
+
+      - name: Cleanup test survey response
+        if: ${{ inputs.action == 'cleanup_response' }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RESPONSE_ID: ${{ inputs.response_id }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RESPONSE_ID" ]; then echo "response_id required"; exit 1; fi
+          code=$(curl -sS -o /tmp/delete.out -w '%{http_code}' -X DELETE \
+            "$SUPABASE_URL/rest/v1/survey_responses?id=eq.$RESPONSE_ID" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY")
+          echo "cleanup_http=$code"
+          test "$code" = "204"
