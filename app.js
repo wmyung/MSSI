@@ -1,18 +1,9 @@
-/**
- * app.js  ─  기분장애 설문 웹앱 (완성판)
- * ─────────────────────────────────────
- * 역할 분리
- *   patient  : 설문 작성 / 결과 조회
- *   doctor   : 환자 검색 + 결과 열람 + 환자 목록
- *   admin    : 의사 승인 / 전체 관리
- */
 
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, PATIENT_EMAIL_DOMAIN, DOCTOR_EMAIL_DOMAIN, ADMIN_EMAIL, GOOGLE_SHEETS_WEBHOOK_URL } from "./config.js";
 import { SURVEY_SECTIONS } from "./questions.js";
 import { calculateScores, generateReport, getGlobalInstructions } from "./scoring.js";
 
-// ─── 인메모리 스토리지 (localStorage 대체) ───
 const _store = {};
 const safeStorage = {
   getItem: (k)    => _store[k] ?? null,
@@ -21,9 +12,6 @@ const safeStorage = {
   clear: ()       => { Object.keys(_store).forEach(k => delete _store[k]); }
 };
 
-// ══════════════════════════════════════════════════════════════
-// 1. 초기화
-// ══════════════════════════════════════════════════════════════
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const state = {
@@ -34,19 +22,16 @@ const state = {
   responseId: null,
 };
 
-// ── DOM 유틸 ──
 const $  = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
 const el = id  => document.getElementById(id);
 
-// ── 뷰 전환 ──
 function show(id) {
   $$(".view").forEach(v => v.classList.remove("active"));
   const target = el(id);
   if (target) { target.classList.add("active"); window.scrollTo(0, 0); }
 }
 
-// ── 상태 메시지 ──
 function setMsg(elId, msg, type = "info") {
   const el_ = el(elId);
   if (!el_) return;
@@ -58,7 +43,6 @@ function clearMsg(elId) {
   const el_ = el(elId); if (el_) el_.className = "status-msg";
 }
 
-// ─── 변별진단 분기 매핑 (상위=아니오 → 하위 숨김) ───
 const DIAG_BRANCH = {
   diag_panic:  { parent: "d1a", children: ["d1b", "d2"] },
   diag_agora:  { parent: "e1",  children: ["e3"] },
@@ -81,18 +65,12 @@ function isAUDITSkipActive() {
 const cleanText  = t => t ? t.replace(/\[cite:[^\]]*\]/g, "").trim() : "";
 const cleanTitle = t => t ? t.replace(/\s*\([^)]+\)/g, "").trim() : "";
 
-// ── 날짜 포맷 ──
 function fmtDate(str) {
   if (!str) return "-";
   const d = new Date(str);
   return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
 }
 
-// ══════════════════════════════════════════════════════════════
-// 2. 앱 시작 / 인증
-// ══════════════════════════════════════════════════════════════
-
-// 아이디 자동완성
 window.addEventListener("DOMContentLoaded", () => {
   const saved = safeStorage.getItem("saved_id") || "";
   if (saved) {
@@ -100,7 +78,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (el("a_email") && saved.includes("@")) el("a_email").value = saved;
     if (el("saveIdCheck")) el("saveIdCheck").checked = true;
   }
-  // 앱 초기화 버튼
+
   el("btnHardReset")?.addEventListener("click", async () => {
     if (!confirm("로그인 정보를 초기화하고 새로고침합니다.")) return;
     await sb.auth.signOut();
@@ -110,7 +88,6 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// 탭 전환 (응답자 / 의사 / 관리자)
 let authMode = "login";
 let selectedRole = "patient";
 
@@ -137,7 +114,6 @@ el("btnToggleSignup")?.addEventListener("click", () => {
   renderAuthMode();
 });
 
-// 병원닉네임에서 병원코드 자동 생성
 const CONSONANT_MAP = {
   'ㄱ':'G','ㄴ':'N','ㄷ':'D','ㄹ':'R','ㅁ':'M','ㅂ':'B','ㅅ':'S',
   'ㅇ':null,'ㅈ':'J','ㅊ':'C','ㅋ':'K','ㅌ':'T','ㅍ':'P','ㅎ':'H'
@@ -177,7 +153,6 @@ function renderAuthMode() {
   clearMsg("authMsg");
 }
 
-// ── 로그인 / 가입 처리 ──
 el("btnLoginAction")?.addEventListener("click", async () => {
   clearMsg("authMsg");
   setMsg("authMsg", "처리 중...", "info");
@@ -208,7 +183,7 @@ el("btnLoginAction")?.addEventListener("click", async () => {
       pw = el("d_pw").value;
 
     } else {
-      // admin
+
       rawId = el("a_email").value.trim();
       email = rawId; pw = el("a_pw").value;
       if (email.toLowerCase() !== ADMIN_EMAIL) throw "관리자 계정이 아닙니다.";
@@ -216,7 +191,6 @@ el("btnLoginAction")?.addEventListener("click", async () => {
 
     if (!pw) throw "비밀번호를 입력하세요.";
 
-    // 아이디 저장
     const saveCheck = el("saveIdCheck");
     if (saveCheck?.checked) safeStorage.setItem("saved_id", selectedRole === "admin" ? email : rawId);
     else safeStorage.removeItem("saved_id");
@@ -224,7 +198,6 @@ el("btnLoginAction")?.addEventListener("click", async () => {
     if (authMode === "signup") {
       if (selectedRole === "admin") throw "관리자는 가입 불가합니다.";
 
-      // 환자는 병원코드 검증
       if (selectedRole === "patient") {
         const hCode = el("p_hcode").value.trim();
         if (!hCode) throw "병원코드를 입력하세요.";
@@ -232,7 +205,6 @@ el("btnLoginAction")?.addEventListener("click", async () => {
         if (!docProf) throw "존재하지 않거나 미승인된 병원코드입니다.";
       }
 
-      // signUp metadata에 모든 정보를 담아 전송 → handle_new_user 트리거가 profiles 자동 생성
       let signUpMeta;
       if (selectedRole === "patient") {
         signUpMeta = {
@@ -277,13 +249,11 @@ el("btnLoginAction")?.addEventListener("click", async () => {
   }
 });
 
-// ── 인증 상태 변경 감지 ──
 async function handleAuthUser(user) {
   const logoutBtn = el("btnLogout");
   const userBadge = el("userBadge");
   if (logoutBtn) logoutBtn.style.display = "block";
 
-  // 관리자 패스트트랙
   if (user.email?.toLowerCase() === ADMIN_EMAIL) {
     state.profile = { id: user.id, role: "admin", username: "admin",
       doctor_name: "총괄관리자", hospital_name: "서울대학교" };
@@ -292,7 +262,6 @@ async function handleAuthUser(user) {
     return;
   }
 
-  // 프로필 로드 (최대 5회 재시도)
   let prof = null;
   for (let i = 0; i < 5; i++) {
     const { data, error } = await sb.from("profiles")
@@ -320,13 +289,13 @@ async function handleAuthUser(user) {
 }
 
 sb.auth.onAuthStateChange((event, session) => {
-  // 화면 전환이 필요한 이벤트만 처리
+
   if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
     state.user = session?.user || null;
     if (state.user) {
       handleAuthUser(state.user);
     } else {
-      // 세션 없음 (INITIAL_SESSION with no session)
+
       el("btnLogout") && (el("btnLogout").style.display = "none");
       el("userBadge") && (el("userBadge").style.display = "none");
       show("view-auth");
@@ -341,20 +310,16 @@ sb.auth.onAuthStateChange((event, session) => {
     renderAuthForms();
   } else if (event === "TOKEN_REFRESHED") {
     state.user = session?.user || null;
-    // 화면 전환 없음
+
   }
 });
 
-// 로그아웃
 el("btnLogout")?.addEventListener("click", async () => {
   await sb.auth.signOut();
   safeStorage.removeItem("supabase.auth.token");
   location.reload();
 });
 
-// ══════════════════════════════════════════════════════════════
-// 3. 승인 대기 화면
-// ══════════════════════════════════════════════════════════════
 function showPendingScreen() {
   show("view-pending");
   const name = state.profile?.doctor_name || state.profile?.username || "선생님";
@@ -362,9 +327,6 @@ function showPendingScreen() {
 }
 el("btnPendingRefresh")?.addEventListener("click", () => location.reload());
 
-// ══════════════════════════════════════════════════════════════
-// 4. 관리자
-// ══════════════════════════════════════════════════════════════
 async function initAdmin() {
   show("view-admin");
   await loadAdminPending();
@@ -417,7 +379,6 @@ async function loadAdminDoctors() {
     </div>`).join("");
 }
 
-// 관리자 버튼 이벤트 위임
 document.addEventListener("click", async (e) => {
   if (e.target.matches(".approve-btn")) {
     const { id, name } = e.target.dataset;
@@ -458,9 +419,6 @@ el("btnExportAll")?.addEventListener("click", async () => {
   a.click();
 });
 
-// ══════════════════════════════════════════════════════════════
-// 5. 의사 대시보드
-// ══════════════════════════════════════════════════════════════
 function initDoctor() {
   show("view-doctor");
   const p = state.profile;
@@ -473,7 +431,6 @@ function initDoctor() {
   loadDoctorPatientList();
 }
 
-// 탭 전환
 $$(".doctor-tab").forEach(btn => btn.addEventListener("click", () => {
   $$(".doctor-tab").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
@@ -482,7 +439,6 @@ $$(".doctor-tab").forEach(btn => btn.addEventListener("click", () => {
   el("doctorTabList").style.display   = tab === "list"   ? "block" : "none";
 }));
 
-// 환자 검색
 el("btnSearchPatient")?.addEventListener("click", searchPatient);
 el("searchPNum")?.addEventListener("keydown", e => { if (e.key === "Enter") searchPatient(); });
 
@@ -507,7 +463,7 @@ async function searchPatient() {
 
 function renderDoctorResult(row, container) {
   let report = row.report;
-  // report가 없거나 옵날 형식이면 재계산
+
   const needsRecalc = !report || !report.sections?.[0]?.groups;
   if (needsRecalc && row.answers) {
     try {
@@ -541,7 +497,6 @@ function renderDoctorResult(row, container) {
   renderReportHTML(report, el("drReportContent"));
 }
 
-// 환자 목록 (RPC 호출 — SECURITY DEFINER로 병원코드 자동 필터)
 async function loadDoctorPatientList() {
   const list = el("doctorPatientList");
   if (!list) return;
@@ -567,7 +522,7 @@ async function loadDoctorPatientList() {
 
 window.viewResponseById = async (responseId) => {
   const { data } = await sb.from("survey_responses").select("*").eq("id", responseId).single();
-  // report가 없거나 옵날 형식이면 재계산
+
   const needsRecalc = !data?.report || !data.report.sections?.[0]?.groups;
   if (needsRecalc && data?.answers) {
     try {
@@ -576,13 +531,11 @@ window.viewResponseById = async (responseId) => {
     } catch (e) { console.error("재계산 실패:", e); }
   }
   if (!data?.report) return alert("결과를 찾을 수 없습니다.");
-  
-  // 결과 화면으로 이동
+
   const area = el("doctorResultArea");
   area.innerHTML = "";
   renderDoctorResult(data, area);
 
-  // 검색 탭으로 전환
   $$(".doctor-tab").forEach(b => b.classList.remove("active"));
   el("doctorTabSearchBtn")?.classList.add("active");
   el("doctorTabSearch").style.display = "block";
@@ -592,9 +545,6 @@ window.viewResponseById = async (responseId) => {
   area.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
-// ══════════════════════════════════════════════════════════════
-// 6. 환자 대시보드
-// ══════════════════════════════════════════════════════════════
 async function initPatient() {
   show("view-patient");
   const p = state.profile;
@@ -617,7 +567,6 @@ async function refreshPatientStatus() {
   const resumeBtn  = el("btnResumeSurvey");
   const resultBtn  = el("btnViewMyResult");
 
-  // 상태 초기화
   if (startBtn)  startBtn.style.display  = "block";
   if (resumeBtn) resumeBtn.style.display = "none";
   if (resultBtn) resultBtn.disabled      = true;
@@ -639,7 +588,6 @@ async function refreshPatientStatus() {
     if (startBtn) startBtn.textContent = "설문 시작하기";
   }
 
-  // 이전 결과 목록 로드
   await loadPatientHistory();
 }
 
@@ -667,7 +615,6 @@ async function loadPatientHistory() {
     </div>`).join("");
 }
 
-// 설문 시작
 el("btnStartSurvey")?.addEventListener("click", async () => {
   if (!confirm("새 설문을 시작하시겠습니까?")) return;
   state.answers = {}; state.currentSectionIdx = 0;
@@ -685,16 +632,14 @@ el("btnStartSurvey")?.addEventListener("click", async () => {
   renderSurvey();
 });
 
-// 이어하기
 el("btnResumeSurvey")?.addEventListener("click", () => renderSurvey());
 
-// 내 결과 보기
 el("btnViewMyResult")?.addEventListener("click", () => viewMyResult(state.responseId));
 
 window.viewMyResult = async (rid) => {
   const { data } = await sb.from("survey_responses").select("report, scores, answers, completed_at, patient_number").eq("id", rid).single();
   let report = data?.report;
-  // report가 없거나 옵날 형식(groups 없음)이면 재계산
+
   const needsRecalc = !report || !report.sections?.[0]?.groups;
   if (needsRecalc && data?.answers) {
     try {
@@ -709,14 +654,9 @@ window.viewMyResult = async (rid) => {
   el("btnBack").onclick = () => { show("view-patient"); refreshPatientStatus(); };
 };
 
-// ══════════════════════════════════════════════════════════════
-// 7. 설문 엔진
-// ══════════════════════════════════════════════════════════════
-
-// 자동 저장
 let autoSaveTimer = null;
 function clearHighlight(key) {
-  // key에서 q_id 추출 (_yn, _freq, _sev, _0 등 접미사 제거)
+
   const base = key.replace(/_(yn|freq|sev|r\d+_m\d+|\d+)$/g, '');
   const row = document.getElementById(`q_${base}`) || document.getElementById(`q_${key}`);
   if (row) row.classList.remove("unanswered");
@@ -732,7 +672,6 @@ function triggerAutoSave() {
   }, 1200);
 }
 
-// 전역 답변 저장 함수 (인라인 onchange에서 호출)
 window.saveAns    = (k, v)   => { state.answers[k] = Number(v); clearHighlight(k); triggerAutoSave(); };
 window.saveChk    = (k, v)   => { state.answers[k] = v ? 1 : 0; clearHighlight(k); triggerAutoSave(); };
 window.savePmsSkip = (v)     => { state.answers["pms_skip"] = Number(v); triggerAutoSave(); renderSurvey(); };
@@ -745,7 +684,6 @@ window.handleComplexChange = (qid, val) => {
   if (val == 0) { state.answers[`${qid}_freq`] = 0; state.answers[`${qid}_sev`] = 0; }
 };
 
-// 유효성 검사 — 미응답 항목 ID 배열 반환 (빈 배열이면 통과)
 function getUnanswered() {
   const section = SURVEY_SECTIONS[state.currentSectionIdx];
   if (!section) return [];
@@ -758,10 +696,8 @@ function getUnanswered() {
   for (const q of section.questions) {
     if (q.type === "info") continue;
 
-    // 변별진단: 상위문항=아니오면 하위문항 skip
     if (isDiagChildHidden(section.id, q.id)) continue;
 
-    // AUDIT: 비음주자는 au2~au10 skip
     if (section.id === "audit_k" && q.id !== "au1" && isAUDITSkipActive()) continue;
 
     if (section.type === "matrix_complex" && q.id !== "mssi21") {
@@ -770,7 +706,7 @@ function getUnanswered() {
         if (state.answers[`${q.id}_freq`] === undefined || state.answers[`${q.id}_sev`] === undefined) missing.push(q.id);
       }
     } else if (q.type === "matrix_months") {
-      // optional
+
     } else if (q.type === "scale_matrix") {
       for (let r = 0; r < q.rows.length; r++) {
         if (state.answers[`${q.id}_${r}`] === undefined) { missing.push(q.id); break; }
@@ -792,23 +728,21 @@ function getUnanswered() {
 
 function validateSection() { return getUnanswered().length === 0; }
 
-// 미응답 항목 하이라이트 + 첫 번째로 스크롤
 function highlightUnanswered(ids) {
-  // 이전 하이라이트 제거
+
   document.querySelectorAll(".q-row.unanswered").forEach(el => el.classList.remove("unanswered"));
-  // 새 하이라이트 추가
+
   ids.forEach(id => {
     const row = document.getElementById(`q_${id}`);
     if (row) row.classList.add("unanswered");
   });
-  // 첫 번째 미응답 항목으로 스크롤
+
   if (ids.length > 0) {
     const first = document.getElementById(`q_${ids[0]}`);
     if (first) first.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 }
 
-// ─── 설문 렌더링 ───
 function renderSurvey() {
   show("view-survey");
 
@@ -816,12 +750,10 @@ function renderSurvey() {
 
   if (!section) { submitSurvey(); return; }
 
-  // 프로그레스
   const pct = Math.round(((state.currentSectionIdx + 1) / SURVEY_SECTIONS.length) * 100);
   el("surveyBar").style.width = pct + "%";
   el("surveyProgressLabel").textContent = `${state.currentSectionIdx + 1} / ${SURVEY_SECTIONS.length} 섹션 (${pct}%)`;
 
-  // 타이틀 / 설명
   el("surveyTitle").textContent = cleanTitle(section.title);
   let desc = cleanText(section.description || "");
   if (section.type === "matrix_complex") {
@@ -832,7 +764,6 @@ function renderSurvey() {
   const container = el("surveyContainer");
   container.innerHTML = "";
 
-  // PMS 사전 선택 배너
   const isPmsSection = section.title.includes("PMS") || section.title.includes("생리주기");
   if (isPmsSection) {
     const banner = document.createElement("div");
@@ -848,14 +779,13 @@ function renderSurvey() {
         </label>
       </div>`;
     container.appendChild(banner);
-    if (state.answers["pms_skip"] == 1) return; // 나머지 질문 렌더 안 함
-    if (state.answers["pms_skip"] === undefined) return; // 선택 전이면 질문 안 보여줌
+    if (state.answers["pms_skip"] == 1) return;
+    if (state.answers["pms_skip"] === undefined) return;
   }
 
-  // 각 질문 렌더
   section.questions.forEach((q, qIdx) => {
     if (q.type === "info") {
-      // 안내 텍스트
+
       const infoDiv = document.createElement("div");
       infoDiv.className = "survey-desc mt-8 mb-20";
       infoDiv.style.marginBottom = "16px";
@@ -864,18 +794,16 @@ function renderSurvey() {
       return;
     }
 
-    // AUDIT 비음주자: au1=0 → 나머지 자동 0점 처리하고 숨김
     if (section.id === "audit_k" && q.id !== "au1" && isAUDITSkipActive()) {
       state.answers[q.id] = state.answers[q.id] || 0;
       const input = document.querySelector(`input[name="${q.id}"]`);
       if (input) { input.checked = true; input.dispatchEvent(new Event('change')); }
-      return; // 렌더 안 함
+      return;
     }
 
-    // 변별진단: 상위문항=아니오면 하위문항 숨김
     if (isDiagChildHidden(section.id, q.id)) {
-      state.answers[q.id] = 0; // 자동 0점
-      return; // 렌더 안 함
+      state.answers[q.id] = 0;
+      return;
     }
 
     const qRow = document.createElement("div");
@@ -900,7 +828,6 @@ function renderSurvey() {
   });
 }
 
-// ─── 표준 라디오/체크박스 ───
 function renderStandard(q, section, qRow, qIdx) {
   const isMulti = q.type === "checkbox";
   let options = q.options || section.options || [];
@@ -959,7 +886,6 @@ function renderStandard(q, section, qRow, qIdx) {
   });
 }
 
-// ─── MSSI (복합 빈도×심각도) ───
 function renderMSSI(q, section, qRow) {
   const yn = state.answers[`${q.id}_yn`];
   qRow.innerHTML = `
@@ -994,7 +920,6 @@ function renderMSSI(q, section, qRow) {
     </div>`;
 }
 
-// ─── 월별 체크박스 ───
 function renderMatrixMonths(q, qRow) {
   const months = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월","차이없음"];
   qRow.style.flexDirection = "column";
@@ -1006,7 +931,6 @@ function renderMatrixMonths(q, qRow) {
       <div class="months-grid">
         ${months.map((m, cidx) => {
           const k = `${q.id}_r${ridx}_m${cidx}`;
-          // SPAQ 월별/차이없음 상호배제: 월(0-11) 체크시 차이없음(12) 해제, 차이없음 체크시 월 해제
           const onChangeLogic = cidx === 12
             ? `window.saveChk('${k}', this.checked); if(this.checked){for(let ci=0;ci<12;ci++){window.saveChk('${q.id}_r${ridx}_m'+ci,false);document.querySelectorAll('input[name^=\"${q.id}_r${ridx}_m\"]')[ci].checked=false;}}`
             : `window.saveChk('${k}', this.checked); if(this.checked){var nc=document.querySelector('input[name=\"${q.id}_r${ridx}_m12\"]');if(nc){nc.checked=false;window.saveChk('${q.id}_r${ridx}_m12',false);}}`;
@@ -1017,7 +941,6 @@ function renderMatrixMonths(q, qRow) {
   });
 }
 
-// ─── Scale Matrix (표) ───
 function renderScaleMatrix(q, qRow) {
   qRow.style.flexDirection = "column";
   let html = `
@@ -1040,7 +963,6 @@ function renderScaleMatrix(q, qRow) {
   qRow.innerHTML = html;
 }
 
-// ─── 계절/수면 (숫자 입력) ───
 function renderSeasonSleep(q, qRow) {
   qRow.style.flexDirection = "column";
   qRow.innerHTML = `
@@ -1055,7 +977,6 @@ function renderSeasonSleep(q, qRow) {
     </div>`;
 }
 
-// ─── K-MDQ 커스텀 ───
 function renderCustomMDQ(q, qRow) {
   qRow.style.flexDirection = "column";
   qRow.innerHTML = `<div class="q-text">${cleanText(q.text)}</div>`;
@@ -1077,7 +998,6 @@ function renderCustomMDQ(q, qRow) {
   });
 }
 
-// ─── 다음 버튼 ───
 el("btnNext")?.addEventListener("click", async () => {
   const missing = getUnanswered();
   if (missing.length > 0) {
@@ -1099,7 +1019,6 @@ el("btnNext")?.addEventListener("click", async () => {
   }
 });
 
-// ─── 이전 버튼 ───
 el("btnPrev")?.addEventListener("click", () => {
   if (state.currentSectionIdx > 0) {
     state.currentSectionIdx--;
@@ -1108,7 +1027,6 @@ el("btnPrev")?.addEventListener("click", () => {
   }
 });
 
-// ─── 임시저장 ───
 el("btnSaveQuit")?.addEventListener("click", async () => {
   await sb.from("survey_responses").update({
     answers: state.answers,
@@ -1119,7 +1037,6 @@ el("btnSaveQuit")?.addEventListener("click", async () => {
   refreshPatientStatus();
 });
 
-// ─── 최종 제출 ───
 async function submitSurvey() {
   if (!confirm("모든 설문이 완료되었습니다. 제출하시겠습니까?")) return;
 
@@ -1135,8 +1052,7 @@ async function submitSurvey() {
     }).eq("id", state.responseId);
 
     alert("설문이 성공적으로 제출되었습니다.");
-    
-    // Google Sheets에 데이터 전송 (webhook URL이 설정된 경우)
+
     if (GOOGLE_SHEETS_WEBHOOK_URL && state.profile) {
       try {
         const gsPayload = {
@@ -1151,7 +1067,7 @@ async function submitSurvey() {
         };
         fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
           method: 'POST',
-          mode: 'no-cors', // Apps Script는 CORS를 완전 지원하지 않음
+          mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gsPayload)
         }).catch(e => console.warn('Google Sheets 전송 실패(무시됨):', e));
@@ -1159,14 +1075,14 @@ async function submitSurvey() {
         console.warn('Google Sheets 전송 오류(무시됨):', e);
       }
     }
-    
+
     renderResultView(report, new Date().toISOString(), state.profile?.patient_number);
     show("view-result");
     el("btnBack").onclick = () => { show("view-patient"); refreshPatientStatus(); };
 
   } catch (err) {
     console.error(err);
-    // 채점 실패해도 저장은 시도
+
     await sb.from("survey_responses").update({
       answers: state.answers, status: "completed",
       completed: true,
@@ -1179,9 +1095,6 @@ async function submitSurvey() {
 }
 window.submitSurvey = submitSurvey;
 
-// ══════════════════════════════════════════════════════════════
-// 8. 결과 리포트 렌더링
-// ══════════════════════════════════════════════════════════════
 function renderResultView(report, completedAt, patientNumber) {
   el("resultDate").textContent    = fmtDate(completedAt);
   el("resultPatNum").textContent  = patientNumber ? `번호: ${patientNumber}` : "";
@@ -1189,7 +1102,6 @@ function renderResultView(report, completedAt, patientNumber) {
   const instructions = (report && report.instructions) ? report.instructions : getGlobalInstructions();
   el("resultInstructions").textContent = instructions;
 
-  // 환자 정보 표시 (출생연도, 병원코드, 번호)
   const infoEl = el("resultPatientInfo");
   if (infoEl && state.profile) {
     const p = state.profile;
@@ -1207,19 +1119,16 @@ function renderResultView(report, completedAt, patientNumber) {
 function renderReportHTML(report, container) {
   if (!container || !report) return;
 
-  // 헬퍼: 점수 포맷
   function fmtScore(val) {
     if (val === undefined || val === null) return "-";
     if (typeof val === 'number') return Number.isInteger(val) ? String(val) : parseFloat(val.toFixed(2)).toString();
     return String(val);
   }
 
-  // 헬퍼: 백분위 등 표시
   function fmtRank(r) {
     return typeof r === "number" ? r + "등" : (r || "-");
   }
 
-  // 간단 구조 취다보기: groups 없으면 rows/specialRows를 group으로 율교
   const sections = report.sections || [];
 
   container.innerHTML = sections.map(section => {
@@ -1228,17 +1137,14 @@ function renderReportHTML(report, container) {
     let groupsHTML = groups.map(group => {
       let html = "";
 
-      // (a) Sub-section label
       if (group.label && group.type !== "comorbidity") {
         html += `<div class="group-label">${group.label}</div>`;
       }
 
-      // (b) Description block
       if (group.description) {
         html += `<div class="section-desc-block">${group.description}</div>`;
       }
 
-      // (c) Comorbidity group (vertical list)
       if (group.type === "comorbidity") {
         const items = group.items || [];
         html += `<div class="group-label">${group.label || ""}</div>`;
@@ -1251,15 +1157,13 @@ function renderReportHTML(report, container) {
         return html;
       }
 
-      // (d) Data table
       const rows = group.rows || [];
       if (rows.length === 0) return html;
 
-      // Determine if any row uses specialCols (5-column)
       const hasSpecial = rows.some(r => r.specialCols);
 
       if (hasSpecial) {
-        // 5-column header: 검사명 | 결과 | 점수 | 환자비교백분위 | 정상군비교백분위
+
         html += `<div class="result-table-wrap"><table class="result-table">
           <thead><tr>
             <th class="col-name">검사명</th>
@@ -1303,7 +1207,7 @@ function renderReportHTML(report, container) {
         });
         html += `</tbody></table></div>`;
       } else {
-        // Standard 4-column layout
+
         html += `<div class="result-table-wrap"><table class="result-table">
           <thead><tr>
             <th class="col-name">검사명</th>

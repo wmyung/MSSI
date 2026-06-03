@@ -6,7 +6,7 @@
   <title>관리자 대시보드 – 기분장애 임상평가 설문</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* ─── Admin-specific overrides ─── */
+
     .admin-header {
       display: flex;
       align-items: center;
@@ -64,7 +64,7 @@
       font-weight: 600;
       text-align: center;
     }
-    /* ─── Responsive tweaks ─── */
+
     @media (max-width: 600px) {
       .admin-header { flex-direction: column; align-items: stretch; }
       .admin-header-actions { justify-content: stretch; }
@@ -77,7 +77,6 @@
 </head>
 <body>
 
-<!-- ══════════ 헤더 ══════════ -->
 <header id="mainHeader">
   <h1>기분장애 임상평가 설문 – 관리자</h1>
   <div class="header-right">
@@ -88,13 +87,12 @@
 
 <div class="container">
 
-  <!-- ══════════ 로그인 뷰 ══════════ -->
   <div id="view-auth" class="view active">
     <div class="card" style="max-width:440px; margin:0 auto;">
       <h2 class="card-title text-center" style="text-align:center;">관리자 로그인</h2>
       <div class="form-group">
         <label>관리자 이메일</label>
-        <input type="email" id="a_email" placeholder="snumood@gmail.com" autocomplete="email">
+        <input type="email" id="a_email" placeholder="관리자 이메일" autocomplete="email">
       </div>
       <div class="form-group">
         <label>비밀번호</label>
@@ -105,7 +103,6 @@
     </div>
   </div>
 
-  <!-- ══════════ 관리자 대시보드 뷰 ══════════ -->
   <div id="view-admin" class="view">
     <div class="card">
       <div class="admin-header">
@@ -116,7 +113,6 @@
         </div>
       </div>
 
-      <!-- 승인 대기 의사 -->
       <div class="section-body">
         <div class="section-header">
           <div class="list-section-title">승인 대기 의사</div>
@@ -125,7 +121,6 @@
         <div id="adminPendingList"></div>
       </div>
 
-      <!-- 등록된 의사 목록 -->
       <div class="section-body">
         <div class="section-header">
           <div class="list-section-title">등록된 의사 목록</div>
@@ -136,17 +131,15 @@
     </div>
   </div>
 
-</div><!-- /.container -->
+</div>
 
 <script type="module">
-  // ─── IMPORTS ──────────────────────────────────────────────
+
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
   import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL } from "./config.js";
 
-  // ─── SUPABASE CLIENT ──────────────────────────────────────
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ─── DOM HELPERS ──────────────────────────────────────────
   const $  = sel => document.querySelector(sel);
   const $$ = sel => document.querySelectorAll(sel);
   const el = id  => document.getElementById(id);
@@ -170,10 +163,8 @@
     if (el_) el_.className = "status-msg";
   }
 
-  // ─── STATE ─────────────────────────────────────────────────
   const state = { user: null, session: null };
 
-  // ─── AUTH: CHECK SESSION ──────────────────────────────────
   async function checkSession() {
     const { data: { session }, error } = await sb.auth.getSession();
     if (error) { console.error("Session error:", error); return null; }
@@ -188,7 +179,7 @@
       await loadAdminDoctors();
       return session;
     }
-    // If logged in but wrong email — sign out
+
     if (session) {
       await sb.auth.signOut();
     }
@@ -196,7 +187,6 @@
     return null;
   }
 
-  // ─── LOGIN ─────────────────────────────────────────────────
   el("btnLogin").addEventListener("click", async () => {
     const email = el("a_email").value.trim();
     const password = el("a_pw").value;
@@ -233,7 +223,6 @@
     }
   });
 
-  // ─── LOGOUT ────────────────────────────────────────────────
   el("btnLogout").addEventListener("click", async () => {
     await sb.auth.signOut();
     state.user = null;
@@ -245,7 +234,6 @@
     showView("view-auth");
   });
 
-  // ─── LOAD PENDING DOCTORS ─────────────────────────────────
   async function loadAdminPending() {
     const list = el("adminPendingList");
     if (!list) return;
@@ -275,7 +263,6 @@
       </div>`).join("");
   }
 
-  // ─── LOAD REGISTERED DOCTORS ──────────────────────────────
   async function loadAdminDoctors() {
     const list = el("adminDoctorList");
     if (!list) return;
@@ -313,9 +300,8 @@
     }).join("");
   }
 
-  // ─── EVENT DELEGATION (승인 / 비밀번호 초기화) ────────────
   document.addEventListener("click", async (e) => {
-    // 승인
+
     if (e.target.matches(".approve-btn")) {
       const id = e.target.dataset.id;
       const name = e.target.dataset.name || "해당";
@@ -335,7 +321,6 @@
       return;
     }
 
-    // 비밀번호 초기화
     if (e.target.matches(".reset-btn")) {
       const id = e.target.dataset.id;
       const newPw = "000000";
@@ -357,7 +342,6 @@
     }
   });
 
-  // ─── REFRESH BUTTONS ──────────────────────────────────────
   async function refreshAll() {
     const btn = el("btnAdminRefresh");
     btn.disabled = true;
@@ -387,7 +371,6 @@
     btn.disabled = false;
   });
 
-  // ─── EXPORT ALL DATA ──────────────────────────────────────
   el("btnExportAll")?.addEventListener("click", async () => {
     const btn = el("btnExportAll");
     btn.disabled = true;
@@ -414,7 +397,6 @@
     URL.revokeObjectURL(a.href);
   });
 
-  // ─── UTILITY: ESCAPE HTML ─────────────────────────────────
   function escapeHtml(str) {
     if (str == null) return "";
     const div = document.createElement("div");
@@ -426,8 +408,6 @@
     return String(str).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  // ─── INIT ──────────────────────────────────────────────────
-  // Allow Enter key to trigger login
   el("a_pw").addEventListener("keydown", (e) => {
     if (e.key === "Enter") el("btnLogin").click();
   });

@@ -50,12 +50,12 @@
         return;
       }
       const user = session.user;
-      // 관리자
+
       if (user.email?.toLowerCase() === ADMIN_EMAIL) {
         window.location.replace("admin.html");
         return;
       }
-      // 프로필 확인
+
       const { data: prof } = await sb.from("profiles")
         .select("role")
         .eq("id", user.id)

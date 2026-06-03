@@ -1,10 +1,4 @@
-/**
- * questions.js
- * [FINAL COMPLETE VERSION - NO OMISSIONS]
- * '기분장애_설문지.docx'의 모든 내용을 100% 반영함.
- */
 
-// --- 공통 옵션 정의 ---
 const OPT_ZUNG = [
   { v: 1, l: "1. 아니다" },
   { v: 2, l: "2. 가끔 그렇다" },
@@ -121,7 +115,6 @@ const OPT_PMS = [
   { v: 4, l: "4. 심하게 경험한다" }
 ];
 
-// --- 설문 구조 정의 ---
 export const SURVEY_SECTIONS = [
   {
     id: "zung_sds",

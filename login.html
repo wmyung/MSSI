@@ -6,7 +6,7 @@
   <title>로그인 — 기분장애 임상평가 설문</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* ─── 로그인 전용 스타일 ─── */
+
     body {
       min-height: 100vh;
       display: flex;
@@ -193,7 +193,6 @@
     <div class="login-card">
       <h2>로그인</h2>
 
-      <!-- 역할 탭 -->
       <div class="auth-tabs">
         <button class="auth-tab active" data-role="patient">응답자</button>
         <button class="auth-tab" data-role="doctor">의사</button>
@@ -202,7 +201,6 @@
 
       <div id="authMsg" class="status-msg"></div>
 
-      <!-- 응답자 폼 -->
       <div id="form-patient">
         <div class="form-group">
           <label>아이디</label>
@@ -214,7 +212,6 @@
         </div>
       </div>
 
-      <!-- 의사 폼 -->
       <div id="form-doctor" style="display:none;">
         <div class="form-group">
           <label>아이디</label>
@@ -226,7 +223,6 @@
         </div>
       </div>
 
-      <!-- 관리자 폼 -->
       <div id="form-admin" style="display:none;">
         <div class="form-admin-note">관리자만 접근 가능합니다</div>
         <div class="form-group">
@@ -270,14 +266,12 @@
     };
     const clearMsg = () => { $("authMsg").className = "status-msg"; };
 
-    // ─── 역할 탭 전환 + URL 파라미터 지원 ───
-    // URL에 ?role=patient / ?role=doctor 가 있으면 해당 역할 고정
     const urlRole = new URLSearchParams(location.search).get("role");
     if (urlRole && ["patient", "doctor", "admin"].includes(urlRole)) {
       selectedRole = urlRole;
       document.querySelectorAll(".auth-tab").forEach(b => b.classList.remove("active"));
       document.querySelector(`.auth-tab[data-role="${urlRole}"]`)?.classList.add("active");
-      // 다른 역할 탭 숨김
+
       document.querySelectorAll(".auth-tab").forEach(b => {
         if (b.dataset.role !== urlRole) b.style.display = "none";
       });
@@ -291,7 +285,7 @@
       $("signupLink").style.display = selectedRole === "admin" ? "none" : "inline";
       $("signupLink2").style.display = selectedRole === "admin" ? "none" : "inline";
     } else {
-      // 일반 모드 — 모든 탭 표시
+
       document.querySelectorAll(".auth-tab").forEach(btn => {
         btn.addEventListener("click", () => {
           document.querySelectorAll(".auth-tab").forEach(b => b.classList.remove("active"));
@@ -311,7 +305,6 @@
       });
     }
 
-    // ─── 로그인 처리 ───
     $("btnLogin").addEventListener("click", async () => {
       clearMsg();
       let email, pw;
@@ -337,7 +330,6 @@
 
         if (!pw) throw "비밀번호를 입력하세요.";
 
-        // 아이디 저장
         const saveId = $("saveIdCheck").checked ? email.split("@")[0] : null;
         if (saveId) localStorage.setItem("saved_id", saveId);
         else localStorage.removeItem("saved_id");
@@ -348,21 +340,18 @@
         const { error } = await sb.auth.signInWithPassword({ email, password: pw });
         if (error) throw "로그인 실패. 정보를 확인하세요.";
 
-        // 로그인 성공 → 리디렉션 (onAuthStateChange에서 처리)
       } catch (e) {
         setMsg(typeof e === "string" ? e : (e.message || "오류 발생"), "error");
         $("btnLogin").disabled = false;
       }
     });
 
-    // Enter 키 submit
     document.querySelectorAll("input").forEach(inp => {
       inp.addEventListener("keydown", e => {
         if (e.key === "Enter") $("btnLogin").click();
       });
     });
 
-    // ─── 저장된 아이디 복원 ───
     const saved = localStorage.getItem("saved_id") || "";
     if (saved) {
       ["p_id", "d_id"].forEach(id => {
@@ -372,7 +361,6 @@
       $("saveIdCheck").checked = true;
     }
 
-    // ─── 인증 상태 감지 → 페이지 이동 ───
     const redirectMap = {
       patient: "respondent.html",
       doctor: "doctor.html",
@@ -384,13 +372,11 @@
         const user = session?.user;
         if (!user) return;
 
-        // 관리자 패스트트랙
         if (user.email?.toLowerCase() === ADMIN_EMAIL) {
           window.location.href = "admin.html";
           return;
         }
 
-        // 프로필 확인 후 리디렉션
         setTimeout(async () => {
           let prof = null;
           for (let i = 0; i < 5; i++) {
@@ -407,7 +393,6 @@
       }
     });
 
-    // 이미 로그인되어 있으면 INITIAL_SESSION 이벤트에서 처리됨
   </script>
 </body>
 </html>

@@ -6,7 +6,7 @@
   <title>의사 대시보드 — 기분장애 임상평가 설문</title>
   <link rel="stylesheet" href="styles.css">
   <style>
-    /* ─── 추가 의사 대시보드 스타일 ─── */
+
     .doctor-hero {
       background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
       color: #fff;
@@ -113,7 +113,6 @@
 </head>
 <body>
 
-<!-- ══════════ 헤더 ══════════ -->
 <header id="mainHeader">
   <h1>기분장애 임상평가 설문</h1>
   <div class="header-right">
@@ -124,13 +123,11 @@
 
 <div class="container">
 
-  <!-- ══════════ 로딩 스피너 (인증 확인 중) ══════════ -->
   <div id="view-loading" class="view active" style="text-align:center;padding:80px 20px;">
     <div style="width:40px;height:40px;border:3px solid #e0e0e0;border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 20px;"></div>
     <p style="color:var(--text-sub);font-size:15px;">인증 확인 중...</p>
   </div>
 
-  <!-- ══════════ 의사 대시보드 뷰 ══════════ -->
   <div id="view-doctor" class="view">
     <div class="doctor-hero">
       <h2 id="doctorName">의사 선생님</h2>
@@ -148,13 +145,12 @@
     </div>
 
     <div class="card">
-      <!-- 탭 -->
+
       <div class="doctor-tabs">
         <button class="doctor-tab active" data-tab="search" id="doctorTabSearchBtn">환자 검색</button>
         <button class="doctor-tab" data-tab="list">환자 목록</button>
       </div>
 
-      <!-- 검색 탭 -->
       <div id="doctorTabSearch">
         <div class="form-group">
           <label>환자 번호</label>
@@ -167,7 +163,6 @@
         <div id="doctorResultArea"></div>
       </div>
 
-      <!-- 목록 탭 -->
       <div id="doctorTabList" style="display:none;">
         <h3 style="font-size:15px; font-weight:700; margin-bottom:16px; color:var(--text-sub);">내 병원 완료된 설문 목록</h3>
         <div id="doctorPatientList">
@@ -180,7 +175,7 @@
     </div>
   </div>
 
-</div><!-- /.container -->
+</div>
 
 <script type="module">
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
@@ -188,22 +183,18 @@
   import { SURVEY_SECTIONS } from "./questions.js";
   import { calculateScores, generateReport, getGlobalInstructions } from "./scoring.js";
 
-  // ─── Supabase 클라이언트 ───
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  // ─── DOM 유틸 ───
   const $  = sel => document.querySelector(sel);
   const $$ = sel => document.querySelectorAll(sel);
   const el = id  => document.getElementById(id);
 
-  // ─── 날짜 포맷 ───
   function fmtDate(str) {
     if (!str) return "-";
     const d = new Date(str);
     return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
   }
 
-  // ─── 상태 메시지 ───
   function setMsg(elId, msg, type = "info") {
     const el_ = el(elId);
     if (!el_) return;
@@ -215,16 +206,12 @@
     const el_ = el(elId); if (el_) el_.className = "status-msg";
   }
 
-  // ─── 뷰 전환 ───
   function show(id) {
     $$(".view").forEach(v => v.classList.remove("active"));
     const target = el(id);
     if (target) { target.classList.add("active"); window.scrollTo(0, 0); }
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 리포트 HTML 렌더러 (app.js의 renderReportHTML 이식)
-  // ══════════════════════════════════════════════════════════════
   function renderReportHTML(report, container) {
     if (!container || !report) return;
 
@@ -246,17 +233,14 @@
       let groupsHTML = groups.map(group => {
         let html = "";
 
-        // Sub-section label
         if (group.label && group.type !== "comorbidity") {
           html += `<div class="group-label">${group.label}</div>`;
         }
 
-        // Description block
         if (group.description) {
           html += `<div class="section-desc-block">${group.description}</div>`;
         }
 
-        // Comorbidity group
         if (group.type === "comorbidity") {
           const items = group.items || [];
           html += `<div class="group-label">${group.label || ""}</div>`;
@@ -269,7 +253,6 @@
           return html;
         }
 
-        // Data table
         const rows = group.rows || [];
         if (rows.length === 0) return html;
 
@@ -360,9 +343,6 @@
     }).join("");
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 환자 검색 결과 렌더링 (app.js의 renderDoctorResult 이식)
-  // ══════════════════════════════════════════════════════════════
   function renderDoctorResult(row, container) {
     let report = row.report;
     const needsRecalc = !report || !report.sections?.[0]?.groups;
@@ -403,9 +383,6 @@
     renderReportHTML(report, el("drReportContent"));
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 환자 검색
-  // ══════════════════════════════════════════════════════════════
   async function searchPatient() {
     const pNum = el("searchPNum").value.trim();
     if (!pNum) return alert("번호를 입력하세요.");
@@ -425,9 +402,6 @@
     renderDoctorResult(row, el("doctorResultArea"));
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 환자 목록 불러오기
-  // ══════════════════════════════════════════════════════════════
   async function loadDoctorPatientList() {
     const list = el("doctorPatientList");
     if (!list) return;
@@ -454,7 +428,6 @@
         <button class="btn secondary sm" data-view-id="${r.id}">결과보기</button>
       </div>`).join("");
 
-    // 결과보기 클릭 이벤트
     list.querySelectorAll('[data-view-id]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -464,9 +437,6 @@
     });
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 결과보기 (ID 기반)
-  // ══════════════════════════════════════════════════════════════
   async function viewResponseById(responseId) {
     const { data, error } = await sb.from("survey_responses").select("*").eq("id", responseId).single();
     if (error || !data) return alert("결과를 찾을 수 없습니다.");
@@ -480,12 +450,10 @@
     }
     if (!data?.report) return alert("결과를 찾을 수 없습니다.");
 
-    // 결과 화면으로 이동
     const area = el("doctorResultArea");
     area.innerHTML = "";
     renderDoctorResult(data, area);
 
-    // 검색 탭으로 전환
     $$(".doctor-tab").forEach(b => b.classList.remove("active"));
     el("doctorTabSearchBtn")?.classList.add("active");
     el("doctorTabSearch").style.display = "block";
@@ -495,9 +463,6 @@
     area.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 의사 대시보드 초기화
-  // ══════════════════════════════════════════════════════════════
   function initDoctor(profile) {
     show("view-doctor");
 
@@ -509,9 +474,6 @@
     loadDoctorPatientList();
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // 탭 전환
-  // ══════════════════════════════════════════════════════════════
   $$(".doctor-tab").forEach(btn => btn.addEventListener("click", () => {
     $$(".doctor-tab").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
@@ -520,39 +482,28 @@
     el("doctorTabList").style.display   = tab === "list"   ? "block" : "none";
   }));
 
-  // ══════════════════════════════════════════════════════════════
-  // 검색 버튼 / Enter 이벤트
-  // ══════════════════════════════════════════════════════════════
   el("btnSearchPatient")?.addEventListener("click", searchPatient);
   el("searchPNum")?.addEventListener("keydown", e => { if (e.key === "Enter") searchPatient(); });
 
-  // ══════════════════════════════════════════════════════════════
-  // 로그아웃
-  // ══════════════════════════════════════════════════════════════
   el("btnLogout")?.addEventListener("click", async () => {
     await sb.auth.signOut();
     window.location.href = "login.html";
   });
 
-  // ══════════════════════════════════════════════════════════════
-  // 인증 상태 감지 → 페이지 초기화
-  // ══════════════════════════════════════════════════════════════
   sb.auth.onAuthStateChange((event, session) => {
     if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
       const user = session?.user;
       if (!user) {
-        // 세션 없음 → 로그인 페이지로
+
         window.location.href = "login.html";
         return;
       }
 
-      // 관리자 패스트트랙
       if (user.email?.toLowerCase() === ADMIN_EMAIL) {
         window.location.href = "admin.html";
         return;
       }
 
-      // 프로필 로드 (최대 5회 재시도)
       (async () => {
         let prof = null;
         for (let i = 0; i < 5; i++) {
@@ -569,7 +520,6 @@
           return;
         }
 
-        // 의사 권한 확인
         if (prof.role !== "doctor") {
           if (prof.role === "patient") {
             window.location.href = "respondent.html";

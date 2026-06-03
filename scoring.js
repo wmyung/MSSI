@@ -1,9 +1,4 @@
-/**
- * scoring.js
- * [REWRITTEN - Excel stats values, 4-column layout report structure]
- */
 
-// --- 1. 통계 데이터 (Excel 수치 완벽 반영) ---
 const STATS = {
   ZUNG:       { pat_m: 51.64,  pat_sd: 10.87,  nor_m: 43.42,  nor_sd: 10.01 },
   BAI:        { pat_m: 20.14,  pat_sd: 13.71,  nor_m: 10.27,  nor_sd: 10.30 },
@@ -76,7 +71,6 @@ const STATS = {
   PMS_Func:   { pat_m: 4.43,   pat_sd: 3.81,   nor_m: 4.12,   nor_sd: 2.42  }
 };
 
-// --- 2. 수학적 헬퍼 함수 ---
 function normalCDF(x, mean, std) {
   if (std === 0) return x < mean ? 0 : 1;
   const z = (x - mean) / std;
@@ -98,13 +92,11 @@ function getRankColor(rank) {
   return "#9FB0FF";
 }
 
-// --- 3. 채점 로직 ---
 export function calculateScores(answers) {
   const get = (k) => (answers[k] !== undefined ? Number(answers[k]) : 0);
   const sum = (p, s, e) => { let t = 0; for (let i = s; i <= e; i++) t += get(`${p}${i}`); return t; };
   const avg = (keys) => keys.reduce((a, k) => a + get(k), 0) / keys.length;
 
-  // ZUNG SDS (역채점: 2,5,6,11,12,14,16,17,18,20)
   let zung = 0;
   const zungRev = [2, 5, 6, 11, 12, 14, 16, 17, 18, 20];
   for (let i = 1; i <= 20; i++) {
@@ -112,10 +104,8 @@ export function calculateScores(answers) {
     if (v > 0) zung += zungRev.includes(i) ? (5 - v) : v;
   }
 
-  // BAI
   const bai = sum('b', 1, 21);
 
-  // TEMPS-A (items 1-5 scale → "예" if >= 3)
   let tempsCyc = 0, tempsDep = 0, tempsIrr = 0, tempsHyp = 0, tempsAnx = 0;
   for (let i = 1; i <= 12; i++) { if (get(`t${i}`) >= 3) tempsCyc++; }
   for (let i = 13; i <= 20; i++) { if (get(`t${i}`) >= 3) tempsDep++; }
@@ -123,23 +113,14 @@ export function calculateScores(answers) {
   for (let i = 29; i <= 36; i++) { if (get(`t${i}`) >= 3) tempsHyp++; }
   for (let i = 37; i <= 39; i++) { if (get(`t${i}`) >= 3) tempsAnx++; }
 
-  // MIQS (기분불안정성상태 - MSSI: freq * sev)
   let miqs = 0;
   for (let i = 1; i <= 20; i++) {
     miqs += (get(`mssi${i}_freq`) * get(`mssi${i}_sev`));
   }
 
-  // MDQ
   const mdqScore = sum('mdq', 1, 13);
   const mdqPos = (mdqScore >= 7 && get('mdq14') === 1 && get('mdq15') >= 2);
 
-  // MIQ-T (기분변동성 기질)
-  // 17 items total: mt1-mt17
-  // Lability (기분기복): mt1, mt6, mt11, mt16, mt17
-  // Downward (기분하향): mt2, mt7, mt12
-  // Upward (기분상승): mt3, mt8, mt13
-  // Seasonality (계절기분변동성): mt4, mt9, mt14
-  // Childhood (소아기기분변동성): mt5, mt10, mt15
   const miqtTotal = sum('mt', 1, 17);
   const miqtLabil = [1, 6, 11, 16, 17].reduce((a, c) => a + get(`mt${c}`), 0);
   const miqtDown  = [2, 7, 12].reduce((a, c) => a + get(`mt${c}`), 0);
@@ -147,7 +128,6 @@ export function calculateScores(answers) {
   const miqtSeason= [4, 9, 14].reduce((a, c) => a + get(`mt${c}`), 0);
   const miqtChild = [5, 10, 15].reduce((a, c) => a + get(`mt${c}`), 0);
 
-  // CTQ (역채점: 2,5,7,10,13,16,19,22,26,28)
   const ctqRevItems = [2, 5, 7, 10, 13, 16, 19, 22, 26, 28];
   const ctqItems = Array.from({length: 28}, (_, i) => {
     const v = get(`ctq${i+1}`);
@@ -160,7 +140,6 @@ export function calculateScores(answers) {
   const ctqEN       = [5, 7, 13, 19, 28].reduce((a, c) => a + ctqItems[c-1], 0);
   const ctqPN       = [1, 2, 4, 6, 26].reduce((a, c) => a + ctqItems[c-1], 0);
 
-  // IPSM
   const ipsmTotal  = sum('ip', 1, 36);
   const ipsmIA     = [2, 9, 11, 15, 18, 19, 30, 36].reduce((a, c) => a + get(`ip${c}`), 0);
   const ipsmNA     = [3, 5, 10, 14, 23, 24, 25, 35].reduce((a, c) => a + get(`ip${c}`), 0);
@@ -168,7 +147,6 @@ export function calculateScores(answers) {
   const ipsmTIM    = [4, 6, 13, 20, 26, 29, 32].reduce((a, c) => a + get(`ip${c}`), 0);
   const ipsmFIS    = [7, 16, 21, 22, 27, 33].reduce((a, c) => a + get(`ip${c}`), 0);
 
-  // CD-RISC
   const cdTotal    = sum('cd', 1, 25);
   const cdHard     = [10, 11, 12, 16, 17, 23, 24, 25].reduce((a, c) => a + get(`cd${c}`), 0);
   const cdPersist  = [6, 7, 14, 15, 18, 19, 20].reduce((a, c) => a + get(`cd${c}`), 0);
@@ -176,7 +154,6 @@ export function calculateScores(answers) {
   const cdSupport  = [3, 9, 13].reduce((a, c) => a + get(`cd${c}`), 0);
   const cdSpirit   = [21, 22].reduce((a, c) => a + get(`cd${c}`), 0);
 
-  // ERSQ (averages)
   const ersqTotal   = sum('er', 1, 27) / 27;
   const ersqAware   = avg(['er1','er2','er3']);
   const ersqBody    = avg(['er4','er5','er6']);
@@ -188,30 +165,25 @@ export function calculateScores(answers) {
   const ersqTolerate= avg(['er22','er23','er24']);
   const ersqModify  = avg(['er25','er26','er27']);
 
-  // BIS/BAS (reverse: bb1, bb18)
   const bis = [1, 6, 10, 13, 15, 18, 20].reduce((a, c) => a + ([1, 18].includes(c) ? (5 - get(`bb${c}`)) : get(`bb${c}`)), 0);
   const basReward = [5, 14, 19, 22].reduce((a, c) => a + get(`bb${c}`), 0);
   const basDrive  = [3, 9, 12, 21].reduce((a, c) => a + get(`bb${c}`), 0);
   const basFun    = [4, 8, 16, 23].reduce((a, c) => a + get(`bb${c}`), 0);
   const bas = basReward + basDrive + basFun;
 
-  // BAPQ (averages per 12 items)
   const bapqAloof  = sum('ba', 1, 12) / 12;
   const bapqPragma = sum('ba', 13, 24) / 12;
   const bapqRigid  = sum('ba', 25, 36) / 12;
   const bapqTotal  = sum('ba', 1, 36) / 36;
 
-  // AUDIT
   const audit = sum('au', 1, 10);
 
-  // CMS (아침/저녁형)
   const cms = sum('cms', 1, 13);
   let cmsClass;
   if (cms >= 41) cmsClass = "아침형";
   else if (cms <= 26) cmsClass = "저녁형";
   else cmsClass = "중간형";
 
-  // SPAQ
   const spaqScore = sum('spaq2_', 0, 5);
   const spaqGlobal = get('spaq_global');
   let spaqClass;
@@ -219,25 +191,20 @@ export function calculateScores(answers) {
   else if (spaqScore >= 11 || spaqGlobal >= 2) spaqClass = "subsyndromal SAD";
   else spaqClass = "not SAD";
 
-  // ASRS screening (6 items threshold-based)
   let asrsScreen = 0;
   for (let i = 1; i <= 3; i++) { if (get(`adhd${i}`) >= 3) asrsScreen++; }
-  for (let i = 4; i <= 6; i++) { if (get(`adhd${i}`) >= 4) asrsScreen++; }  // 공식 기준: Q4-Q6 >= 4 (자주 이상)
+  for (let i = 4; i <= 6; i++) { if (get(`adhd${i}`) >= 4) asrsScreen++; }
   const asrsResult = asrsScreen >= 4 ? `성인ADHD의심됨, 6개중${asrsScreen}항목` : `성인ADHD의심되지않음, 6개중${asrsScreen}항목`;
   const asrsTotal  = sum('adhd', 1, 18);
 
-  // WURS
   const wurs = sum('wurs', 1, 25);
 
-  // BOR
   const bor = sum('bor', 1, 24);
 
-  // PMS
   const pmsSym  = sum('pms', 1, 14);
   const pmsFunc = sum('pms_imp', 1, 5);
   const pmsDiag = (pmsSym >= 10 && pmsFunc >= 3) ? "PMS" : "no-PMS";
 
-  // 공존장애 선별
   const diag = {
     suicide: get('ds1') ? 'O' : 'X',
     zhae:    get('ds2') ? 'O' : 'X',
@@ -249,7 +216,6 @@ export function calculateScores(answers) {
     gad:     (get('n1a') && get('n1b') && get('n2')) ? 'O' : 'X'
   };
 
-  // 기타 파생 점수
   const agitatedDep = (miqs >= 30 && asrsScreen >= 4) ? "양성" : "음성";
   const mixedDep    = (mdqPos || miqtTotal >= 29) ? "양성" : "음성";
 
@@ -278,11 +244,10 @@ export function calculateScores(answers) {
   };
 }
 
-// --- 4. 리포트 생성 ---
 export function generateReport(scores, answers) {
 
   function makeRow(name, val, statKey, opts) {
-    // opts can be a string (legacy desc) or an object {desc, sub, specialCols, textOnly, extra}
+
     let desc = "", sub = false, specialCols = false, textOnly = false, extra = undefined;
     if (typeof opts === 'string') {
       desc = opts;
@@ -319,7 +284,6 @@ export function generateReport(scores, answers) {
 
   const sections = [];
 
-  // ── 섹션 1: 우울, 불안, 기분안정성상태, 경조증 선별 ──
   sections.push({
     title: "우울, 불안, 기분안정성상태, 경조증 선별",
     groups: [
@@ -352,7 +316,6 @@ export function generateReport(scores, answers) {
     ]
   });
 
-  // ── 섹션 2: 정서기질 ──
   sections.push({
     title: "정서기질",
     groups: [
@@ -369,7 +332,6 @@ export function generateReport(scores, answers) {
     ]
   });
 
-  // ── 섹션 3: 기분안정성기질 ──
   sections.push({
     title: "기분안정성기질",
     groups: [
@@ -387,7 +349,6 @@ export function generateReport(scores, answers) {
     ]
   });
 
-  // ── 섹션 4: 아동기외상, 대인관계민감성, 회복탄력성 ──
   sections.push({
     title: "아동기외상, 대인관계민감성, 회복탄력성",
     groups: [
@@ -430,7 +391,6 @@ export function generateReport(scores, answers) {
     ]
   });
 
-  // ── 섹션 5: 정서조절, 행동패턴, 음주, 수면양상 ──
   {
     const cmsRow = makeRow("아침/저녁형", scores.CMS.score, 'CMS',
       "아침 활동형, 저녁 활동형 여부를 측정하는 검사로 (환자군평균 28.7, 정상군평균 30.6), 점수가 높을수록 아침형, 낮을수록 저녁형에 해당합니다. 응답결과가 41점 이상은 아침형, 26점 이하는 저녁형에 해당하며, 그 중간 점수에 있을 경우에는 구분이 뚜렷하지 않은 중간형에 해당합니다.");
@@ -481,7 +441,6 @@ export function generateReport(scores, answers) {
     });
   }
 
-  // ── 섹션 6: 계절성 우울증, 집중력, 경계선 성격, 행동문제, 성격특성 ──
   {
     const spaqRow = makeRow("계절성우울증", scores.SPAQ.score, 'SPAQ',
       "계절에 따라 수면, 기분, 식욕, 활력 등이 달라지는 경향을 보기 위한 검사입니다. 응답결과가 높을수록 계절에 따른 차이가 크다는 것을 의미합니다. 계절성이 심하고 이에 따른 일상생활의 지장이 크다면 계절성 우울증(SAD)에 해당할 수 있습니다. 설문 결과상 계절성 우울증이 약하게 있으면 \"subsyndromal SAD\" 없으면 \"not SAD\"로 표시됩니다. (환자군평균 6.0 정상군평균 5.9)");
@@ -532,7 +491,6 @@ export function generateReport(scores, answers) {
     });
   }
 
-  // ── 섹션 7: 생리주기에 따른 변화 (여성만) ──
   if (scores.PMS.sym > 0 || scores.PMS.func > 0) {
     sections.push({
       title: "생리주기에 따른 변화 (여성만 해당됩니다)",

@@ -1,9 +1,9 @@
-# Supabase Keep-Alive: DB가 7일 후 일시중지되는 걸 방지
+
 name: Supabase Keep-Alive
 
 on:
   schedule:
-    # 매주 월/수/금 오전 6시 (7일 타임아웃보다 넉넉함)
+
     - cron: '0 6 * * 1,3,5'
   workflow_dispatch:
 
