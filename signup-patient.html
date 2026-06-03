@@ -84,7 +84,7 @@
 
       <div class="form-group">
         <label>생년월 <span class="required">*</span></label>
-        <input type="month" id="s_dob">
+        <input type="month" id="s_dob" min="1900-01" required>
       </div>
       <div class="form-group">
         <label>병원코드 <span class="required">*</span></label>
@@ -112,6 +112,21 @@
     const setMsg = (msg, type) => { const el = $("signupMsg"); el.className = `status-msg show ${type}`; el.textContent = msg; };
     const clearMsg = () => { $("signupMsg").className = "status-msg"; };
 
+    const dobInput = $("s_dob");
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    dobInput.max = currentMonth;
+
+    function validateBirthMonth(value) {
+      if (!value) throw "생년월을 선택하세요.";
+      if (!/^\d{4}-\d{2}$/.test(value)) throw "생년월 형식이 올바르지 않습니다.";
+      const [year, month] = value.split("-").map(Number);
+      if (year < 1900 || year > now.getFullYear()) throw "생년월을 올바르게 선택하세요.";
+      if (month < 1 || month > 12) throw "생년월을 올바르게 선택하세요.";
+      if (value > currentMonth) throw "미래 생년월은 선택할 수 없습니다.";
+      return value;
+    }
+
     $("btnSignup").addEventListener("click", async () => {
       clearMsg();
       const id = $("s_id").value.trim();
@@ -125,9 +140,8 @@
         if (pw.length < 4) throw "비밀번호는 4자리 이상이어야 합니다.";
         if (pw !== pw2) throw "비밀번호가 일치하지 않습니다.";
 
-        const dob = $("s_dob").value;
+        const dob = validateBirthMonth($("s_dob").value);
         const hcode = $("s_hcode").value.trim();
-        if (!dob) throw "생년월을 선택하세요.";
         if (!hcode) throw "병원코드를 입력하세요.";
 
         const { data: docProf } = await sb.from("profiles").select("id").eq("hospital_code", hcode).eq("role", "doctor").maybeSingle();
