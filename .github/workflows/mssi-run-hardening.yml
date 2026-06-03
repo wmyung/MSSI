@@ -1,0 +1,45 @@
+name: MSSI Run Hardening SQL
+"on":
+  workflow_dispatch:
+
+jobs:
+  hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run hardening through Supabase Management API
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: gcjdxyauirbugbugltmv
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, urllib.request, urllib.error, pathlib, sys
+          token = os.environ.get('SUPABASE_ACCESS_TOKEN', '').strip()
+          if not token:
+              print('supabase_access_token_present=false')
+              raise SystemExit(2)
+          print('supabase_access_token_present=true')
+          sql = pathlib.Path('supabase/hardening.sql').read_text()
+          url = f"https://api.supabase.com/v1/projects/{os.environ['PROJECT_REF']}/database/query"
+          body = json.dumps({'query': sql}).encode()
+          req = urllib.request.Request(
+              url,
+              data=body,
+              method='POST',
+              headers={
+                  'Authorization': 'Bearer ' + token,
+                  'Content-Type': 'application/json',
+              },
+          )
+          try:
+              with urllib.request.urlopen(req, timeout=120) as res:
+                  txt = res.read().decode(errors='ignore')
+                  print('management_http=' + str(res.status))
+                  print('hardening_sql=success')
+          except urllib.error.HTTPError as e:
+              txt = e.read().decode(errors='ignore')[:1000]
+              print('management_http=' + str(e.code))
+              print(txt)
+              raise
+          PY
