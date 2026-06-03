@@ -46,7 +46,7 @@
     async function route() {
       const { data: { session } } = await sb.auth.getSession();
       if (!session?.user) {
-        window.location.replace("login.html");
+        window.location.replace("login.html?role=patient");
         return;
       }
       const user = session.user;
