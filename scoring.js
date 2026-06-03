@@ -107,11 +107,11 @@ export function calculateScores(answers) {
   const bai = sum('b', 1, 21);
 
   let tempsCyc = 0, tempsDep = 0, tempsIrr = 0, tempsHyp = 0, tempsAnx = 0;
-  for (let i = 1; i <= 12; i++) { if (get(`t${i}`) >= 3) tempsCyc++; }
-  for (let i = 13; i <= 20; i++) { if (get(`t${i}`) >= 3) tempsDep++; }
-  for (let i = 21; i <= 28; i++) { if (get(`t${i}`) >= 3) tempsIrr++; }
-  for (let i = 29; i <= 36; i++) { if (get(`t${i}`) >= 3) tempsHyp++; }
-  for (let i = 37; i <= 39; i++) { if (get(`t${i}`) >= 3) tempsAnx++; }
+  for (let i = 1; i <= 12; i++) { if (get(`t${i}`) >= 1) tempsCyc++; }
+  for (let i = 13; i <= 20; i++) { if (get(`t${i}`) >= 1) tempsDep++; }
+  for (let i = 21; i <= 28; i++) { if (get(`t${i}`) >= 1) tempsIrr++; }
+  for (let i = 29; i <= 36; i++) { if (get(`t${i}`) >= 1) tempsHyp++; }
+  for (let i = 37; i <= 39; i++) { if (get(`t${i}`) >= 1) tempsAnx++; }
 
   let miqs = 0;
   for (let i = 1; i <= 20; i++) {
