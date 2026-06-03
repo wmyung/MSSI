@@ -1,0 +1,29 @@
+name: MSSI SQL Probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe RPC helpers
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          for fn in exec_sql execute_sql run_sql query sql; do
+            code=$(curl -sS -o /tmp/out -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/$fn" \
+              -H "apikey: $SUPABASE_SERVICE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{"query":"select 1","sql":"select 1"}')
+            msg=$(python3 - <<'PY'
+import json
+s=open('/tmp/out').read()[:500]
+try:
+  o=json.loads(s); print(o.get('code','')+':'+o.get('message','')[:160])
+except Exception: print(s[:180])
+PY
+)
+            echo "$fn http=$code $msg"
+          done
