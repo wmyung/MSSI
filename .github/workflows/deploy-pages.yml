@@ -31,7 +31,6 @@ jobs:
       - name: Inject runtime config
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
           GOOGLE_SHEETS_WEBHOOK_URL: ${{ secrets.GOOGLE_SHEETS_WEBHOOK_URL }}
         run: |
@@ -43,7 +42,6 @@ jobs:
 
           replacements = {
               'SUPABASE_URL': os.environ.get('VITE_SUPABASE_URL', '').strip(),
-              'SUPABASE_ANON_KEY': os.environ.get('VITE_SUPABASE_ANON_KEY', '').strip(),
               'ADMIN_EMAIL': os.environ.get('ADMIN_EMAIL', '').strip(),
               'GOOGLE_SHEETS_WEBHOOK_URL': os.environ.get('GOOGLE_SHEETS_WEBHOOK_URL', '').strip(),
           }
