@@ -162,7 +162,7 @@ function handleLogout() {
 
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, GOOGLE_SHEETS_WEBHOOK_URL } from "./config.js";
 import { SURVEY_SECTIONS } from "./questions.js";
 import { calculateScores, generateReport, getGlobalInstructions } from "./scoring.js";
 
@@ -766,6 +766,30 @@ async function submitSurvey() {
       completed: true,
       completed_at: new Date().toISOString()
     }).eq("id", state.responseId);
+
+    // Google Sheets webhook (fire-and-forget, no-cors for cross-origin)
+    if (GOOGLE_SHEETS_WEBHOOK_URL) {
+      try {
+        const gsPayload = {
+          timestamp: new Date().toISOString(),
+          patientId: state.user?.id,
+          dob: state.profile?.dob || "",
+          hospitalCode: state.profile?.hospital_code || "",
+          patientNumber: state.profile?.patient_number || "",
+          doctorNickname: state.profile?.doctor_name || "",
+          hospitalNickname: state.profile?.hospital_name || "",
+          answers: state.answers
+        };
+        fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(gsPayload)
+        });
+      } catch (whErr) {
+        console.warn("Google Sheets webhook failed:", whErr);
+      }
+    }
 
     alert("설문이 성공적으로 제출되었습니다.");
     renderResultView(report, new Date().toISOString(), state.profile?.patient_number);
