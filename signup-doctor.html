@@ -101,7 +101,9 @@
         <input type="text" id="s_doctor_hcode" placeholder="자동 생성됩니다" readonly style="background:#f8f9fa;color:#888;">
       </div>
 
-      <button id="btnSignup" class="btn-signup">가입하기</button>
+      <div id="cf-turnstile-container" style="margin: 16px 0;"></div>
+
+      <button id="btnSignup" class="btn-signup" disabled>가입하기</button>
 
       <div class="auth-link">
         <a href="login.html?role=doctor">이미 계정이 있으신가요? 로그인</a>
@@ -121,6 +123,7 @@
     </div>
   </div>
 
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     import { SUPABASE_URL, SUPABASE_ANON_KEY, DOCTOR_EMAIL_DOMAIN } from "./config.js";
@@ -129,6 +132,42 @@
     const $ = id => document.getElementById(id);
     const setMsg = (msg, type) => { const el = $("signupMsg"); el.className = `status-msg show ${type}`; el.textContent = msg; };
     const clearMsg = () => { $("signupMsg").className = "status-msg"; };
+
+    /* ---------- Cloudflare Turnstile ---------- */
+    let turnstileToken = null;
+    const btnSignup = $("btnSignup");
+
+    window.onTurnstileReady = function () {
+      turnstile.render("#cf-turnstile-container", {
+        sitekey: "0x4AAAAAAAZ4uUqJ5VZHmhFh",
+        theme: "light",
+        size: "normal",
+        callback: function (token) {
+          turnstileToken = token;
+          btnSignup.disabled = false;
+        },
+        "expired-callback": function () {
+          turnstileToken = null;
+          btnSignup.disabled = true;
+        },
+        "error-callback": function () {
+          turnstileToken = null;
+          btnSignup.disabled = true;
+        }
+      });
+    };
+    document.addEventListener("DOMContentLoaded", () => {
+      if (typeof turnstile !== "undefined") {
+        turnstile.ready(window.onTurnstileReady);
+      } else {
+        const check = setInterval(() => {
+          if (typeof turnstile !== "undefined") {
+            clearInterval(check);
+            turnstile.ready(window.onTurnstileReady);
+          }
+        }, 200);
+      }
+    });
 
     const CONSONANT_MAP = {
       'ㄱ':'G','ㄴ':'N','ㄷ':'D','ㄹ':'R','ㅁ':'M','ㅂ':'B','ㅅ':'S',
@@ -175,6 +214,7 @@
       const hname = $("s_hname").value.trim();
 
       try {
+        if (!turnstileToken) throw "자동봇방지 확인을 완료해주세요.";
         if (!id) throw "아이디를 입력하세요.";
         if (id.length < 2) throw "아이디는 2자 이상이어야 합니다.";
         if (!pw) throw "비밀번호를 입력하세요.";
@@ -188,7 +228,7 @@
 
         const email = `${id}@${DOCTOR_EMAIL_DOMAIN}`;
         setMsg("가입 요청 중...", "info");
-        $("btnSignup").disabled = true;
+        btnSignup.disabled = true;
 
         const { data, error } = await sb.auth.signUp({
           email, password: pw,
@@ -203,7 +243,7 @@
         if (pendName) pendName.textContent = dname;
       } catch (e) {
         setMsg(typeof e === "string" ? e : (e.message || "오류 발생"), "error");
-        $("btnSignup").disabled = false;
+        btnSignup.disabled = false;
       }
     });
 
