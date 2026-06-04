@@ -398,6 +398,27 @@ BEGIN
 END $$;
 
 --══════════════════════════════════════════════════════════════
+--9. updated_at 컬럼 보강 (기존 DB 누락 방지, 2026-06-04)
+--══════════════════════════════════════════════════════════════
+--profiles 테이블과 survey_responses 테이블의 updated_at 컬럼이
+--트리거에서 참조되나 초기 마이그레이션에서 누락될 수 있음.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.profiles ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'survey_responses' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE public.survey_responses ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+  END IF;
+END $$;
+
+--══════════════════════════════════════════════════════════════
 --서비스 설정
 --══════════════════════════════════════════════════════════════
 --Supabase Auth 설정:
