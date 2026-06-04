@@ -100,25 +100,43 @@ CREATE INDEX IF NOT EXISTS idx_survey_created_at ON public.survey_responses(crea
 --profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
---누구나 프로필 생성 가능 (회원가입 시)
-CREATE POLICY IF NOT EXISTS "profiles_insert_anyone" ON public.profiles
-  FOR INSERT WITH CHECK (true);
+--Helper: security definer 함수 (RLS recursion 방지)
+CREATE OR REPLACE FUNCTION public.get_user_role()
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT role FROM public.profiles WHERE id = auth.uid();
+$$;
 
+CREATE OR REPLACE FUNCTION public.get_user_hospital_code()
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT hospital_code FROM public.profiles WHERE id = auth.uid();
+$$;
+
+--누구나 프로필 생성 가능 (회원가입 시)
+DROP POLICY IF EXISTS "profiles_insert_anyone" ON public.profiles;
+CREATE POLICY "profiles_insert_anyone" ON public.profiles
+  FOR INSERT WITH CHECK (true);
 --자신의 프로필은 읽기 가능
 CREATE POLICY IF NOT EXISTS "profiles_select_own" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
---의사/관리자는 같은 병원코드 환자 프로필 조회 가능
-CREATE POLICY IF NOT EXISTS "profiles_select_doctor_hospital" ON public.profiles
+--의사/관리자는 같은 병원코드 환자 프로필 조회 가능 (SECURITY DEFINER helper 사용, RLS recursion 방지)
+DROP POLICY IF EXISTS "profiles_select_doctor_hospital" ON public.profiles;
+CREATE POLICY "profiles_select_doctor_hospital" ON public.profiles
   FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles viewer
-      WHERE viewer.id = auth.uid()
-        AND viewer.role IN ('doctor', 'admin')
-        AND (
-          viewer.role = 'admin'
-          OR viewer.hospital_code = profiles.hospital_code
-        )
+    public.get_user_role() IN ('doctor'::text, 'admin'::text)
+    AND (
+      public.get_user_role() = 'admin'::text
+      OR profiles.hospital_code = public.get_user_hospital_code()
     )
   );
 
