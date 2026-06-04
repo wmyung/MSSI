@@ -201,8 +201,8 @@ el("btnLoginAction")?.addEventListener("click", async () => {
       if (selectedRole === "patient") {
         const hCode = el("p_hcode").value.trim();
         if (!hCode) throw "병원코드를 입력하세요.";
-        const { data: docProf } = await sb.from("profiles").select("id").eq("hospital_code", hCode).eq("role", "doctor").maybeSingle();
-        if (!docProf) throw "존재하지 않거나 미승인된 병원코드입니다.";
+        const { data: valid } = await sb.rpc("check_hospital_code", { p_code: hCode });
+        if (!valid) throw "존재하지 않거나 미승인된 병원코드입니다.";
       }
 
       let signUpMeta;
