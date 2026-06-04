@@ -96,9 +96,7 @@
         <input type="text" id="s_pnum" placeholder="예: 12345">
       </div>
 
-      <div id="cf-turnstile-container" style="margin: 16px 0;"></div>
-
-      <button id="btnSignup" class="btn-signup" disabled>가입하기</button>
+      <button id="btnSignup" class="btn-signup">가입하기</button>
 
       <div class="auth-link">
         <a href="login.html?role=patient">이미 계정이 있으신가요? 로그인</a>
@@ -106,7 +104,6 @@
     </div>
   </div>
 
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
   <script type="module">
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
     import { SUPABASE_URL, SUPABASE_ANON_KEY, PATIENT_EMAIL_DOMAIN } from "./config.js";
@@ -115,42 +112,6 @@
     const $ = id => document.getElementById(id);
     const setMsg = (msg, type) => { const el = $("signupMsg"); el.className = `status-msg show ${type}`; el.textContent = msg; };
     const clearMsg = () => { $("signupMsg").className = "status-msg"; };
-
-    /* ---------- Cloudflare Turnstile ---------- */
-    let turnstileToken = null;
-    const btnSignup = $("btnSignup");
-
-    window.onTurnstileReady = function () {
-      turnstile.render("#cf-turnstile-container", {
-        sitekey: "0x4AAAAAAAZ4uUqJ5VZHmhFh",
-        theme: "light",
-        size: "normal",
-        callback: function (token) {
-          turnstileToken = token;
-          btnSignup.disabled = false;
-        },
-        "expired-callback": function () {
-          turnstileToken = null;
-          btnSignup.disabled = true;
-        },
-        "error-callback": function () {
-          turnstileToken = null;
-          btnSignup.disabled = true;
-        }
-      });
-    };
-    document.addEventListener("DOMContentLoaded", () => {
-      if (typeof turnstile !== "undefined") {
-        turnstile.ready(window.onTurnstileReady);
-      } else {
-        const check = setInterval(() => {
-          if (typeof turnstile !== "undefined") {
-            clearInterval(check);
-            turnstile.ready(window.onTurnstileReady);
-          }
-        }, 200);
-      }
-    });
 
     const dobInput = $("s_dob");
     const now = new Date();
@@ -167,14 +128,13 @@
       return value;
     }
 
-    btnSignup.addEventListener("click", async () => {
+    $("btnSignup").addEventListener("click", async () => {
       clearMsg();
       const id = $("s_id").value.trim();
       const pw = $("s_pw").value;
       const pw2 = $("s_pw2").value;
 
       try {
-        if (!turnstileToken) throw "자동봇방지 확인을 완료해주세요.";
         if (!id) throw "아이디를 입력하세요.";
         if (id.length < 2) throw "아이디는 2자 이상이어야 합니다.";
         if (!pw) throw "비밀번호를 입력하세요.";
@@ -190,7 +150,7 @@
 
         const email = `${id}@${PATIENT_EMAIL_DOMAIN}`;
         setMsg("가입 요청 중...", "info");
-        btnSignup.disabled = true;
+        $("btnSignup").disabled = true;
 
         const patientNumber = $("s_pnum").value.trim();
         const userData = { role: "patient", username: id, dob, hospital_code: hcode };
@@ -207,12 +167,12 @@
         setTimeout(() => { window.location.href = "login.html"; }, 1500);
       } catch (e) {
         setMsg(typeof e === "string" ? e : (e.message || "오류 발생"), "error");
-        btnSignup.disabled = false;
+        $("btnSignup").disabled = false;
       }
     });
 
     document.querySelectorAll("input").forEach(inp => {
-      inp.addEventListener("keydown", e => { if (e.key === "Enter") btnSignup.click(); });
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") $("btnSignup").click(); });
     });
   </script>
 </body>
