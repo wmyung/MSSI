@@ -188,6 +188,34 @@
   </style>
 </head>
 <body>
+<button id="hamburgerBtn" class="hamburger-btn no-print" onclick="toggleHamburger()" aria-label="메뉴 열기" style="position:fixed;top:10px;left:10px;z-index:100;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+  <span></span><span></span><span></span>
+</button>
+
+<!-- Hamburger Menu -->
+<div id="hamburgerOverlay" class="hamburger-overlay" onclick="toggleHamburger()"></div>
+<div id="hamburgerMenu" class="hamburger-menu">
+  <div class="hamburger-menu-header">
+    <h2>메뉴</h2>
+    <button class="hamburger-menu-close" onclick="toggleHamburger()">✕</button>
+  </div>
+  <nav class="hamburger-menu-nav">
+    <a href="login.html" onclick="toggleHamburger()"><span class="nav-icon">🔑</span> 로그인</a>
+    <a href="signup-patient.html" onclick="toggleHamburger()"><span class="nav-icon">📝</span> 환자 회원가입</a>
+    <a href="signup-doctor.html" onclick="toggleHamburger()"><span class="nav-icon">👨‍⚕️</span> 의사 회원가입</a>
+    <a href="admin.html" onclick="toggleHamburger()"><span class="nav-icon">⚙️</span> 관리자</a>
+  </nav>
+</div>
+
+<script>
+function toggleHamburger() {
+  document.getElementById('hamburgerOverlay').classList.toggle('open');
+  document.getElementById('hamburgerMenu').classList.toggle('open');
+  document.getElementById('hamburgerBtn').classList.toggle('open');
+  document.body.style.overflow = document.body.style.overflow === 'hidden' ? '' : 'hidden';
+}
+</script>
+
   <div class="login-wrapper">
     <div class="login-header">
       <h1>📋 기분장애 임상평가 설문</h1>
