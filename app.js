@@ -1068,7 +1068,7 @@ async function submitSurvey() {
         fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain' },
           body: JSON.stringify(gsPayload)
         }).catch(e => console.warn('Google Sheets 전송 실패(무시됨):', e));
       } catch (e) {
