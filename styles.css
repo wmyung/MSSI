@@ -27,6 +27,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 접근성: 키보드 포커스 표시 */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 body {
   font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-base);
@@ -73,6 +82,9 @@ body {
   border: 1px solid var(--border);
   margin-bottom: 20px;
 }
+@media (max-width: 480px) {
+  .card { padding: 24px 18px; }
+}
 .card-title {
   font-size: 22px;
   font-weight: 800;
@@ -90,6 +102,7 @@ body {
   border-radius: 10px;
   font-size: 15px;
   font-weight: 700;
+  font-family: inherit;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s, opacity 0.15s;
 }
@@ -112,6 +125,13 @@ body {
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+.form-group label .optional {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #999;
 }
 .form-group input,
 .form-group select,
@@ -143,6 +163,7 @@ body {
 .auth-tab {
   flex: 1;
   padding: 12px;
+  min-height: 44px;
   border: none;
   background: transparent;
   border-radius: 8px;
@@ -151,6 +172,9 @@ body {
   color: var(--text-sub);
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .auth-tab.active {
   background: #fff;
@@ -382,6 +406,19 @@ body {
   width: 100%;
   border-collapse: collapse;
   min-width: 600px;
+}
+
+/* 반응형: 600px 미만에서 scale-matrix min-width 완화 */
+@media (max-width: 620px) {
+  .scale-matrix {
+    min-width: 100%;
+  }
+  .scale-matrix th,
+  .scale-matrix td {
+    padding: 8px 6px;
+    font-size: 12px;
+    white-space: normal;
+  }
 }
 .scale-matrix th {
   background: #f9fafb;
