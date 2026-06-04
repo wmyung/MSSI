@@ -12,7 +12,7 @@ assert.match(signup, /const dob = validateBirthMonth\(\$\("s_dob"\)\.value\);/);
 
 const workflow = readFileSync('./.github/workflows/deploy-pages.yml', 'utf8');
 assert.match(workflow, /name: Inject runtime config/);
-assert.match(workflow, /VITE_SUPABASE_ANON_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/);
+assert.doesNotMatch(workflow, /VITE_SUPABASE_ANON_KEY|SUPABASE_ANON_KEY: \$\{\{ secrets\.SUPABASE_ANON_KEY \}\}/);
 assert.match(workflow, /ADMIN_EMAIL: \$\{\{ secrets\.ADMIN_EMAIL \}\}/);
 
 console.log('static validation tests passed');
