@@ -1,0 +1,17 @@
+name: Approve SNUBH Doctor
+on:
+  workflow_dispatch:
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Approve doctor via RPC
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/approve_doctor" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"p_doctor_id": "a8b10efc-4ff1-4288-86c8-6bfcf9531f68"}'
