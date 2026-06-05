@@ -142,7 +142,7 @@
         if (pw !== pw2) throw "비밀번호가 일치하지 않습니다.";
 
         const dob = validateBirthMonth($("s_dob").value);
-        const hcode = $("s_hcode").value.trim();
+        const hcode = $("s_hcode").value.trim().toUpperCase();
         if (!hcode) throw "병원코드를 입력하세요.";
 
         const { data: docProf } = await sb.from("profiles").select("id").eq("hospital_code", hcode).eq("role", "doctor").limit(1).maybeSingle();
