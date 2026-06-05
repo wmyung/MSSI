@@ -1,17 +1,17 @@
-name: Approve SNUBH Doctor
+name: Approve Doctor
 on:
   workflow_dispatch:
 jobs:
   approve:
     runs-on: ubuntu-latest
     steps:
-      - name: Approve doctor via RPC
+      - name: Approve doctor via Auth Admin API
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          curl -s -X POST "$SUPABASE_URL/rest/v1/rpc/approve_doctor" \
-            -H "apikey: $SUPABASE_SERVICE_KEY" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+          echo "Updating user role to doctor..."
+          curl -s -X PUT "${SUPABASE_URL}/auth/v1/admin/users/a8b10efc-4ff1-4288-86c8-6bfcf9531f68" \
+            -H "Authorization: Bearer $SERVICE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"p_doctor_id": "a8b10efc-4ff1-4288-86c8-6bfcf9531f68"}'
+            -d '{"user_metadata": {"role": "doctor", "username": "snubhteam", "doctor_name": "분당기분팀", "hospital_name": "분당서울대학교병원", "hospital_code": "SNUBH01"}}' -w "\nHTTP %{http_code}\n"
