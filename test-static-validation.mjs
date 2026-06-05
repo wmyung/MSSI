@@ -21,10 +21,21 @@ assert.match(respondent, /GOOGLE_SHEETS_WEBHOOK_URL/);
 assert.match(respondent, /Content-Type": "text\/plain;charset=utf-8"/);
 assert.match(respondent, /mode: "no-cors"/);
 assert.doesNotMatch(respondent, /<script>[\s\S]*<\/script>[\s\S]*el\("btnPrintResult"\)/);
+assert.match(respondent, /let submitInProgress = false;/);
+assert.match(respondent, /await submitSurvey\(\);/);
+assert.doesNotMatch(respondent, /onchange="\$\{onChangeLogic\}"/);
+assert.doesNotMatch(respondent, /input\[name\^=\\\\"/);
+assert.match(respondent, /input\.dataset\.monthKey = k;/);
+assert.match(respondent, /q\.type === "matrix_months"[\s\S]*q\.rows\.length[\s\S]*missing\.push\(q\.id\)/);
+
+const styles = readFileSync('./styles.css', 'utf8');
+assert.match(styles, /@media \(max-width: 640px\)[\s\S]*#mainHeader \{[\s\S]*flex-wrap: wrap/);
+assert.match(styles, /@media \(max-width: 640px\)[\s\S]*\.header-nav \{[\s\S]*flex-wrap: wrap/);
 
 const doctor = readFileSync('./doctor.html', 'utf8');
 assert.match(doctor, /id="userBadge"/);
 assert.match(doctor, /login\.html\?role=doctor/);
+assert.match(doctor, /btn-dr-pdf/);
 
 const admin = readFileSync('./admin.html', 'utf8');
 assert.match(admin, /id="userBadge"/);

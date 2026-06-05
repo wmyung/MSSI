@@ -139,6 +139,7 @@ const state = {
   currentSectionIdx: 0,
   responseId: null,
 };
+let submitInProgress = false;
 
 const $  = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
@@ -431,7 +432,13 @@ function getUnanswered() {
         if (state.answers[`${q.id}_freq`] === undefined || state.answers[`${q.id}_sev`] === undefined) missing.push(q.id);
       }
     } else if (q.type === "matrix_months") {
-
+      for (let r = 0; r < q.rows.length; r++) {
+        let hasAnyMonth = false;
+        for (let c = 0; c < 13; c++) {
+          if (state.answers[`${q.id}_r${r}_m${c}`] === 1) { hasAnyMonth = true; break; }
+        }
+        if (!hasAnyMonth) { missing.push(q.id); break; }
+      }
     } else if (q.type === "scale_matrix") {
       for (let r = 0; r < q.rows.length; r++) {
         if (state.answers[`${q.id}_${r}`] === undefined) { missing.push(q.id); break; }
@@ -467,6 +474,9 @@ function highlightUnanswered(ids) {
 
 function renderSurvey() {
   show("view-survey");
+
+  const nextBtn = el("btnNext");
+  if (nextBtn) nextBtn.disabled = false;
 
   let section = SURVEY_SECTIONS[state.currentSectionIdx];
   if (!section) { submitSurvey(); return; }
@@ -645,16 +655,48 @@ function renderMatrixMonths(q, qRow) {
   q.rows.forEach((r, ridx) => {
     const div = document.createElement("div");
     div.className = "months-section";
-    div.innerHTML = `<div class="months-section-title">${cleanText(r)}</div>
-      <div class="months-grid">
-        ${months.map((m, cidx) => {
-          const k = `${q.id}_r${ridx}_m${cidx}`;
-          const onChangeLogic = cidx === 12
-            ? `window.saveChk('${k}', this.checked); if(this.checked){for(let ci=0;ci<12;ci++){window.saveChk('${q.id}_r${ridx}_m'+ci,false);document.querySelectorAll('input[name^=\\"${q.id}_r${ridx}_m\\"]')[ci].checked=false;}}`
-            : `window.saveChk('${k}', this.checked); if(this.checked){var nc=document.querySelector('input[name=\\"${q.id}_r${ridx}_m12\\"]');if(nc){nc.checked=false;window.saveChk('${q.id}_r${ridx}_m12',false);}}`;
-          return `<label class="month-chip"><input type="checkbox" name="${k}" ${state.answers[k]?"checked":""} onchange="${onChangeLogic}"> ${m}</label>`;
-        }).join("")}
-      </div>`;
+
+    const title = document.createElement("div");
+    title.className = "months-section-title";
+    title.textContent = cleanText(r);
+
+    const grid = document.createElement("div");
+    grid.className = "months-grid";
+
+    months.forEach((m, cidx) => {
+      const k = `${q.id}_r${ridx}_m${cidx}`;
+      const label = document.createElement("label");
+      label.className = "month-chip";
+
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.name = k;
+      input.dataset.monthKey = k;
+      input.checked = !!state.answers[k];
+      input.addEventListener("change", () => {
+        window.saveChk(k, input.checked);
+
+        if (cidx === 12 && input.checked) {
+          for (let ci = 0; ci < 12; ci++) {
+            const monthKey = `${q.id}_r${ridx}_m${ci}`;
+            const monthInput = grid.querySelector(`input[data-month-key="${monthKey}"]`);
+            if (monthInput) monthInput.checked = false;
+            window.saveChk(monthKey, false);
+          }
+        } else if (cidx !== 12 && input.checked) {
+          const noDiffKey = `${q.id}_r${ridx}_m12`;
+          const noDiffInput = grid.querySelector(`input[data-month-key="${noDiffKey}"]`);
+          if (noDiffInput) noDiffInput.checked = false;
+          window.saveChk(noDiffKey, false);
+        }
+      });
+
+      label.appendChild(input);
+      label.append(` ${m}`);
+      grid.appendChild(label);
+    });
+
+    div.append(title, grid);
     qRow.appendChild(div);
   });
 }
@@ -717,23 +759,31 @@ function renderCustomMDQ(q, qRow) {
 }
 
 el("btnNext")?.addEventListener("click", async () => {
+  if (submitInProgress) return;
   const missing = getUnanswered();
   if (missing.length > 0) {
     alert(`응답하지 않은 문항이 ${missing.length}개 있습니다.\n해당 항목으로 이동합니다.`);
     highlightUnanswered(missing);
     return;
   }
-  await sb.from("survey_responses").update({
-    answers: state.answers,
-    progress: { sectionIndex: state.currentSectionIdx }
-  }).eq("id", state.responseId);
 
-  if (state.currentSectionIdx < SURVEY_SECTIONS.length - 1) {
-    state.currentSectionIdx++;
-    renderSurvey();
-    window.scrollTo(0, 0);
-  } else {
-    submitSurvey();
+  const nextBtn = el("btnNext");
+  if (nextBtn) nextBtn.disabled = true;
+  try {
+    await sb.from("survey_responses").update({
+      answers: state.answers,
+      progress: { sectionIndex: state.currentSectionIdx }
+    }).eq("id", state.responseId);
+
+    if (state.currentSectionIdx < SURVEY_SECTIONS.length - 1) {
+      state.currentSectionIdx++;
+      renderSurvey();
+      window.scrollTo(0, 0);
+    } else {
+      await submitSurvey();
+    }
+  } finally {
+    if (nextBtn && el("view-survey")?.classList.contains("active")) nextBtn.disabled = false;
   }
 });
 
@@ -756,8 +806,12 @@ el("btnSaveQuit")?.addEventListener("click", async () => {
 });
 
 async function submitSurvey() {
+  if (submitInProgress) return;
   if (!confirm("모든 설문이 완료되었습니다. 제출하시겠습니까?")) return;
 
+  submitInProgress = true;
+  const nextBtn = el("btnNext");
+  if (nextBtn) nextBtn.disabled = true;
   try {
     const scores = calculateScores(state.answers);
     const report = generateReport(scores, state.answers);
@@ -786,6 +840,9 @@ async function submitSurvey() {
     alert("제출 완료 (결과 계산 오류 발생 – 의사에게 문의하세요).");
     show("view-patient");
     refreshPatientStatus();
+  } finally {
+    submitInProgress = false;
+    if (nextBtn && el("view-survey")?.classList.contains("active")) nextBtn.disabled = false;
   }
 }
 
