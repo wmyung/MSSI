@@ -119,6 +119,7 @@
     <a href="doctor.html" class="active">대시보드</a>
     <a href="doctor.html?tab=search">환자검색</a>
     <a href="doctor.html?tab=list">환자목록</a>
+    <span id="userBadge" class="user-badge" style="display:none;">의사</span>
     <button id="btnLogout" class="btn secondary sm" style="margin-left:8px;">로그아웃</button>
   </div>
 </header>
@@ -511,7 +512,7 @@ document.addEventListener('DOMContentLoaded', function() {
       const user = session?.user;
       if (!user) {
 
-        window.location.href = "login.html";
+        window.location.href = "login.html?role=doctor";
         return;
       }
 
@@ -542,7 +543,7 @@ document.addEventListener('DOMContentLoaded', function() {
           } else if (prof.role === "doctor_pending") {
             window.location.href = "signup-doctor.html?pending=1";
           } else {
-            window.location.href = "login.html";
+            window.location.href = "login.html?role=doctor";
           }
           return;
         }

@@ -121,9 +121,12 @@
 
 </div>
 
+<!-- html2pdf.js (클라이언트 PDF 생성) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
 <script type="module">
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, ADMIN_EMAIL, GOOGLE_SHEETS_WEBHOOK_URL } from "./config.js";
 import { SURVEY_SECTIONS } from "./questions.js";
 import { calculateScores, generateReport, getGlobalInstructions } from "./scoring.js";
 
@@ -186,6 +189,44 @@ function fmtDate(str) {
   if (!str) return "-";
   const d = new Date(str);
   return d.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+}
+
+function safeStringify(value) {
+  try { return JSON.stringify(value ?? {}); }
+  catch (e) { console.warn("JSON 직렬화 실패:", e); return ""; }
+}
+
+function buildGoogleSheetsPayload(scores, report) {
+  const p = state.profile || {};
+  return {
+    timestamp: new Date().toISOString(),
+    responseId: state.responseId || "",
+    patientId: p.id || state.user?.id || "",
+    dob: p.dob || "",
+    hospitalCode: p.hospital_code || "",
+    patientNumber: p.patient_number || "",
+    doctorNickname: p.doctor_name || "",
+    hospitalNickname: p.hospital_name || "",
+    answers: state.answers || {},
+    scores: scores || {},
+    report: report || {},
+    scoresJson: safeStringify(scores || {}),
+    reportJson: safeStringify(report || {})
+  };
+}
+
+async function sendGoogleSheetsPayload(scores, report) {
+  if (!GOOGLE_SHEETS_WEBHOOK_URL || !state.profile) return;
+  try {
+    await fetch(GOOGLE_SHEETS_WEBHOOK_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(buildGoogleSheetsPayload(scores, report))
+    });
+  } catch (e) {
+    console.warn("Google Sheets 전송 실패(무시됨):", e);
+  }
 }
 
 async function checkAuth() {
@@ -728,6 +769,8 @@ async function submitSurvey() {
       completed_at: new Date().toISOString()
     }).eq("id", state.responseId);
 
+    await sendGoogleSheetsPayload(scores, report);
+
     alert("설문이 성공적으로 제출되었습니다.");
     renderResultView(report, new Date().toISOString(), state.profile?.patient_number);
     show("view-result");
@@ -898,9 +941,6 @@ function renderReportHTML(report, container) {
   }).join("");
 }
 
-<!-- html2pdf.js (클라이언트 PDF 생성) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script>
 el("btnDownloadPdf")?.addEventListener("click", async function () {
   const btn = this;
   btn.disabled = true;
@@ -933,7 +973,6 @@ el("btnDownloadPdf")?.addEventListener("click", async function () {
     setTimeout(() => { btn.disabled = false; btn.textContent = "📄 PDF 다운로드"; }, 3000);
   }
 });
-</script>
 el("btnPrintResult")?.addEventListener("click", () => window.print());
 el("btnBack")?.addEventListener("click", () => { show("view-patient"); refreshPatientStatus(); });
 

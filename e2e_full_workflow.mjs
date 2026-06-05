@@ -100,7 +100,30 @@ function validateAnswers(a) {
   return missing;
 }
 
-add('deployed_config_shape_local', results.config.key_len>100 && results.config.key_dots===2 && !results.config.key_ellipsis, results.config);
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function postWebhookWithRetry(payload, attempts = 3) {
+  let status = 0;
+  let text = '';
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const wh = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      status = wh.status;
+      text = (await wh.text()).slice(0, 200);
+      if (status >= 200 && status < 400) return { status, text, attempt };
+    } catch (e) {
+      text = String(e).slice(0, 200);
+    }
+    if (attempt < attempts) await sleep(1500 * attempt);
+  }
+  return { status, text, attempt: attempts };
+}
+
+add('deployed_config_shape_local', results.config.key_len>30 && !results.config.key_ellipsis && (results.config.key_dots===2 || SUPABASE_ANON_KEY.startsWith('sb_publishable_')), results.config);
 let r=await fetch(SUPABASE_URL+'/rest/v1/profiles?select=id,role,hospital_code&limit=1',{headers:HDR});
 add('anon_profiles_probe', r.status===200, {http:r.status});
 if (ADMIN_PASSWORD) {
@@ -133,14 +156,19 @@ for (const mode of cases) {
   c.insert_http=ins.status; c.response_id=Array.isArray(ins.json)?ins.json[0]?.id:null;
   const read= c.response_id ? await rest(`survey_responses?select=id,status,completed,patient_number,scores&id=eq.${c.response_id}`, token) : {status:0,json:[]};
   c.verify_http=read.status; c.verified=Array.isArray(read.json)&&read.json.length===1&&read.json[0].status==='completed';
-  // Real webhook payload, same shape as submitSurvey; no-cors not needed in Node. Follow redirect manually handled by fetch.
-  const gsPayload={timestamp:new Date().toISOString(), patientId:userId, dob:'1990-06', hospitalCode:HCODE, patientNumber:pnum, doctorNickname:'', hospitalNickname:'', answers};
-  let whStatus=0, whText='';
-  try { const wh=await fetch(WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(gsPayload)}); whStatus=wh.status; whText=(await wh.text()).slice(0,200); } catch(e) { whText=String(e).slice(0,200); }
-  c.webhook_http=whStatus; c.webhook_body=whText;
-  c.ok=su.ok&&au.ok&&prof2.ok&&missing.length===0&&ins.ok&&c.verified&&(whStatus>=200&&whStatus<400);
+  // Real webhook payload, same shape as submitSurvey. Browser uses no-cors + text/plain
+  // to avoid Apps Script CORS preflight; Node mirrors the content type for parity.
+  const gsPayload={
+    timestamp:new Date().toISOString(), responseId:c.response_id || '', patientId:userId,
+    dob:'1990-06', hospitalCode:HCODE, patientNumber:pnum,
+    doctorNickname:'', hospitalNickname:'', answers, scores, report,
+    scoresJson:JSON.stringify(scores), reportJson:JSON.stringify(report)
+  };
+  const whResult = await postWebhookWithRetry(gsPayload);
+  c.webhook_http=whResult.status; c.webhook_body=whResult.text; c.webhook_attempt=whResult.attempt;
+  c.ok=su.ok&&au.ok&&prof2.ok&&missing.length===0&&ins.ok&&c.verified&&(whResult.status>=200&&whResult.status<400);
   results.cases.push(c);
   add(`case_${mode}_full_submit`, c.ok, {signup:c.signup,login:c.login,profile:c.profile_http,keys:c.answer_keys,missing:c.missing,insert:c.insert_http,verify:c.verify_http,webhook:c.webhook_http,response_id:c.response_id});
 }
-fs.writeFileSync('/workspace/mssi_e2e_full_report.json', JSON.stringify(results,null,2));
-console.log('REPORT /workspace/mssi_e2e_full_report.json');
+fs.writeFileSync('./mssi_e2e_full_report.json', JSON.stringify(results,null,2));
+console.log('REPORT ./mssi_e2e_full_report.json');

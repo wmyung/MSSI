@@ -178,7 +178,7 @@
           await new Promise(r => setTimeout(r, 500));
         }
         if (prof) {
-          const target = redirectMap[prof.role] || "respondent.html";
+          let target = redirectMap[prof.role] || "respondent.html";
           if (prof.role === "doctor_pending") target = "signup-doctor.html?pending=1";
           window.location.href = target;
         }
